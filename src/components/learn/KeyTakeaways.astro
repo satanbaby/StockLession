@@ -1,0 +1,75 @@
+---
+/**
+ * 課末重點回顧。
+ *
+ *   <KeyTakeaways items={[
+ *     '影線代表被否定的價格',
+ *     '收盤價是四個價格裡最重要的',
+ *   ]} />
+ */
+
+interface Props {
+  items: string[];
+  title?: string;
+  class?: string;
+}
+
+const { items, title = '這一課的重點', class: className = '' } = Astro.props;
+---
+
+<section class:list={['take', className]} aria-label={title}>
+  <h3 class="take__title">{title}</h3>
+  <ol class="take__list">
+    {items.map((t) => <li>{t}</li>)}
+  </ol>
+</section>
+
+<style>
+  .take {
+    margin: 2.25rem 0 1.5rem;
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    background: var(--c-accent-wash);
+    box-shadow: var(--shadow-sticker);
+    padding: 1.1rem 1.35rem 1.25rem;
+  }
+
+  .take__title {
+    margin: 0 0 0.7rem;
+    font-size: 1.05rem;
+  }
+
+  .take__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: take;
+    display: grid;
+    gap: 0.55rem;
+  }
+
+  .take__list li {
+    counter-increment: take;
+    display: grid;
+    grid-template-columns: 1.5rem 1fr;
+    gap: 0.6rem;
+    align-items: baseline;
+    font-size: 0.9375rem;
+    line-height: 1.85;
+  }
+
+  .take__list li::before {
+    content: counter(take);
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 2px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-surface);
+    font-size: 0.75rem;
+    font-weight: 700;
+    align-self: start;
+    transform: translateY(0.18rem);
+  }
+</style>

@@ -1,0 +1,192 @@
+---
+/**
+ * 角色對話框 —— 課文裡最常用的元件。
+ *
+ *   <BearTalk bear="duo"  mood="excited">黃金交叉了，這不衝嗎？</BearTalk>
+ *   <BearTalk bear="kong" mood="worried">可是成交量完全沒跟上耶……</BearTalk>
+ *   <BearTalk bear="jun">DIF 與 DEA 都還在零軸下方，這是反彈不是反轉。</BearTalk>
+ *
+ * 對話框的顏色刻意避開紅綠 —— 站上的紅綠專屬於漲跌，
+ * UI 跟著用會稀釋掉學員對「紅漲綠跌」的直覺。
+ */
+import BearAvatar from './BearAvatar.astro';
+import { BEARS } from './parts/bodies';
+import type { BearId, BearMood } from './parts/geometry';
+
+interface Props {
+  bear: BearId;
+  mood?: BearMood;
+  /** 靠右顯示，適合表現「回話」 */
+  side?: 'left' | 'right';
+  class?: string;
+}
+
+const { bear, mood = 'neutral', side = 'left', class: className = '' } = Astro.props;
+const skin = BEARS[bear];
+
+const accents: Record<BearId, { wash: string; edge: string }> = {
+  duo: { wash: 'var(--c-accent-wash)', edge: 'var(--c-accent)' },
+  kong: { wash: 'var(--c-brand-wash)', edge: 'var(--c-brand)' },
+  jun: { wash: 'var(--c-surface-2)', edge: 'var(--c-ink-faint)' },
+};
+const accent = accents[bear];
+---
+
+<div
+  class:list={['beartalk', `beartalk--${side}`, className]}
+  style={`--bubble-bg:${accent.wash};--bubble-edge:${accent.edge}`}
+>
+  <div class="beartalk__avatar">
+    <BearAvatar bear={bear} mood={mood} size={72} flip={side === 'right'} decorative />
+  </div>
+
+  <div class="beartalk__bubble">
+    <p class="beartalk__name">
+      {skin.name}
+      <span class="beartalk__role">{skin.role}</span>
+    </p>
+    <div class="beartalk__body"><slot /></div>
+  </div>
+</div>
+
+<style>
+  .beartalk {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    margin-block: 1.5rem;
+  }
+
+  .beartalk--right {
+    flex-direction: row-reverse;
+  }
+
+  .beartalk__avatar {
+    flex: none;
+    width: 72px;
+    height: 72px;
+    border-radius: 999px;
+    background: var(--bubble-bg);
+    border: 2px solid var(--c-line);
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+  }
+
+  /* 頭部要頂到圓形頭像的上緣，看起來才像探出頭 */
+  .beartalk__avatar :global(svg) {
+    margin-top: 6px;
+  }
+
+  .beartalk__bubble {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    background: var(--bubble-bg);
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    box-shadow: var(--shadow-sticker-sm);
+    padding: 0.7rem 1rem 0.85rem;
+  }
+
+  /* 對話框尖角：外層描邊 + 內層底色，才有跟框一致的邊 */
+  .beartalk__bubble::before,
+  .beartalk__bubble::after {
+    content: '';
+    position: absolute;
+    top: 22px;
+    width: 0;
+    height: 0;
+    border-block: 9px solid transparent;
+  }
+
+  .beartalk--left .beartalk__bubble::before {
+    left: -18px;
+    border-right: 18px solid var(--c-line);
+  }
+
+  .beartalk--left .beartalk__bubble::after {
+    left: -14px;
+    border-right: 18px solid var(--bubble-bg);
+  }
+
+  .beartalk--right .beartalk__bubble::before {
+    right: -18px;
+    border-left: 18px solid var(--c-line);
+  }
+
+  .beartalk--right .beartalk__bubble::after {
+    right: -14px;
+    border-left: 18px solid var(--bubble-bg);
+  }
+
+  .beartalk__name {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin: 0 0 0.15rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1.5;
+    color: var(--c-ink);
+  }
+
+  .beartalk__name::after {
+    content: '';
+    flex: 1 1 auto;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--bubble-edge);
+    opacity: 0.55;
+  }
+
+  .beartalk__role {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--c-ink-soft);
+  }
+
+  .beartalk__body {
+    font-size: 1rem;
+    line-height: 1.8;
+  }
+
+  /* MDX 會把內容包成 <p>，第一段與最後一段不要多出外距 */
+  .beartalk__body :global(> :first-child) {
+    margin-top: 0;
+  }
+
+  .beartalk__body :global(> :last-child) {
+    margin-bottom: 0;
+  }
+
+  .beartalk__body :global(> * + *) {
+    margin-top: 0.6em;
+  }
+
+  @media (max-width: 640px) {
+    .beartalk {
+      gap: 0.5rem;
+    }
+
+    .beartalk__avatar {
+      width: 52px;
+      height: 52px;
+    }
+
+    .beartalk__avatar :global(svg) {
+      width: 52px;
+      height: 52px;
+      margin-top: 4px;
+    }
+
+    .beartalk__bubble {
+      padding: 0.6rem 0.8rem 0.7rem;
+    }
+
+    .beartalk__bubble::before,
+    .beartalk__bubble::after {
+      top: 16px;
+    }
+  }
+</style>

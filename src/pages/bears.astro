@@ -1,0 +1,255 @@
+---
+/**
+ * 角色素材檢視頁。不掛在導覽上，是給維護者用的：
+ * 一次看完 3 隻 × 8 表情，改造型時可以立刻確認沒有哪個組合壞掉。
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import BearAvatar from '@/components/bears/BearAvatar.astro';
+import BearTalk from '@/components/bears/BearTalk.astro';
+import BearScene from '@/components/bears/BearScene.astro';
+import { BEARS } from '@/components/bears/parts/bodies';
+import { BEAR_IDS, BEAR_MOODS } from '@/components/bears/parts/geometry';
+
+const moodLabels: Record<string, string> = {
+  neutral: '平常',
+  happy: '開心',
+  excited: '興奮',
+  worried: '擔心',
+  thinking: '思考',
+  shocked: '震驚',
+  proud: '得意',
+  sleepy: '想睡',
+};
+---
+
+<BaseLayout title="角色素材檢視" description="三熊教室的角色 SVG 素材檢視頁">
+  <h1 class="ttl">角色素材檢視</h1>
+  <p class="sub">
+    原創角色，致敬扁平圓潤的卡通畫風。全部是 inline SVG，零 JS、零額外請求，縮放不失真。
+  </p>
+
+  <section class="sec">
+    <h2>三熊同框</h2>
+    <div class="panel"><BearScene /></div>
+  </section>
+
+  <section class="sec">
+    <h2>表情總表</h2>
+    <div class="scroll-x">
+      <table class="grid">
+        <thead>
+          <tr>
+            <th>角色</th>
+            {BEAR_MOODS.map((m) => <th>{moodLabels[m]}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {
+            BEAR_IDS.map((b) => (
+              <tr>
+                <th scope="row">
+                  <b>{BEARS[b].name}</b>
+                  <span>{BEARS[b].role}</span>
+                </th>
+                {BEAR_MOODS.map((m) => (
+                  <td>
+                    <BearAvatar bear={b} mood={m} size={78} decorative />
+                  </td>
+                ))}
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>小尺寸辨識度</h2>
+    <p class="sub">頭像縮到 32px 還要認得出是誰，不然導覽列與進度標記會變成三顆糊掉的球。</p>
+    <div class="panel sizes">
+      {
+        [32, 48, 64, 96].map((s) => (
+          <div class="sizes__col">
+            <div class="sizes__row">
+              {BEAR_IDS.map((b) => (
+                <BearAvatar bear={b} mood="neutral" size={s} decorative />
+              ))}
+            </div>
+            <code>{s}px</code>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>對話框</h2>
+    <BearTalk bear="duo" mood="excited">
+      MACD 黃金交叉了！DIF 往上穿過 DEA，這不衝嗎？
+    </BearTalk>
+    <BearTalk bear="kong" mood="worried">
+      可是……成交量完全沒跟上耶。而且前面那根長黑棒的高點還壓在頭上。
+    </BearTalk>
+    <BearTalk bear="jun">
+      兩位講的是同一件事的不同面。交叉確實發生了，但 DIF 與 DEA 都還在零軸下方 ——
+      這是空頭裡的反彈，不是趨勢反轉。零軸的位置決定了這個交叉的份量。
+    </BearTalk>
+    <BearTalk bear="duo" mood="shocked" side="right">欸？所以我剛剛差點就……</BearTalk>
+  </section>
+
+  <section class="sec">
+    <h2>角色分工</h2>
+    <div class="cards">
+      {
+        BEAR_IDS.map((b) => (
+          <article class="card">
+            <BearAvatar bear={b} mood={b === 'kong' ? 'worried' : b === 'duo' ? 'happy' : 'thinking'} size={92} decorative />
+            <h3>{BEARS[b].name}</h3>
+            <p class="card__role">{BEARS[b].role}</p>
+            <p class="card__duty">{BEARS[b].duty}</p>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .ttl {
+    font-size: 2rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .sub {
+    color: var(--c-ink-soft);
+    font-size: 0.9375rem;
+    margin-bottom: 1rem;
+  }
+
+  .sec {
+    margin-top: 3rem;
+  }
+
+  .sec > h2 {
+    font-size: 1.35rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .panel {
+    background: var(--c-surface);
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    box-shadow: var(--shadow-sticker);
+    padding: 1.5rem 1rem;
+  }
+
+  .scroll-x {
+    overflow-x: auto;
+  }
+
+  .grid {
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    overflow: hidden;
+    background: var(--c-surface);
+    min-width: 46rem;
+  }
+
+  .grid th,
+  .grid td {
+    padding: 0.5rem;
+    text-align: center;
+    border-bottom: 1px solid var(--c-line-soft);
+  }
+
+  .grid thead th {
+    background: var(--c-accent-wash);
+    font-size: 0.8125rem;
+    white-space: nowrap;
+  }
+
+  .grid tbody th {
+    text-align: left;
+    white-space: nowrap;
+    padding-inline: 0.9rem;
+    background: var(--c-surface-2);
+  }
+
+  .grid tbody th b {
+    display: block;
+    font-size: 0.95rem;
+  }
+
+  .grid tbody th span {
+    font-size: 0.75rem;
+    color: var(--c-ink-soft);
+  }
+
+  .grid tbody tr:last-child th,
+  .grid tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .sizes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1.75rem;
+    justify-content: center;
+  }
+
+  .sizes__col {
+    display: grid;
+    gap: 0.5rem;
+    justify-items: center;
+  }
+
+  .sizes__row {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.4rem;
+  }
+
+  .sizes code {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--c-ink-soft);
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1rem;
+  }
+
+  .card {
+    background: var(--c-surface);
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    box-shadow: var(--shadow-sticker);
+    padding: 1.25rem 1rem;
+    display: grid;
+    justify-items: center;
+    text-align: center;
+    gap: 0.25rem;
+  }
+
+  .card h3 {
+    font-size: 1.15rem;
+    margin-top: 0.4rem;
+  }
+
+  .card__role {
+    font-size: 0.8125rem;
+    color: var(--c-brand-deep);
+  }
+
+  .card__duty {
+    font-size: 0.875rem;
+    color: var(--c-ink-soft);
+    line-height: 1.7;
+  }
+</style>

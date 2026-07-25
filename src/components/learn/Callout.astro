@@ -1,0 +1,110 @@
+---
+/**
+ * 課文中的強調框。
+ *
+ *   <Callout kind="trap">超買不等於該賣。強趨勢裡 KD 可以在 80 以上鈍化好幾週。</Callout>
+ *
+ * 五種語氣各有明確用途，不是換個顏色而已 ——
+ * 尤其 trap 是這套教材的主力：只教訊號會生出照訊號下單的新手。
+ */
+
+interface Props {
+  kind?: 'key' | 'trap' | 'note' | 'tw' | 'try';
+  title?: string;
+  class?: string;
+}
+
+const { kind = 'key', title, class: className = '' } = Astro.props;
+
+const PRESETS = {
+  key: { icon: '★', label: '重點', tone: 'accent' },
+  trap: { icon: '!', label: '常見誤用', tone: 'trap' },
+  note: { icon: 'i', label: '補充', tone: 'note' },
+  tw: { icon: '台', label: '台股特有', tone: 'tw' },
+  try: { icon: '→', label: '動手試試', tone: 'try' },
+} as const;
+
+const preset = PRESETS[kind];
+---
+
+<aside class:list={['call', `call--${preset.tone}`, className]}>
+  <p class="call__head">
+    <span class="call__icon" aria-hidden="true">{preset.icon}</span>
+    <span class="call__label">{title ?? preset.label}</span>
+  </p>
+  <div class="call__body"><slot /></div>
+</aside>
+
+<style>
+  .call {
+    --tone: var(--c-accent);
+    --wash: var(--c-accent-wash);
+    margin: 1.6rem 0;
+    border: 2px solid var(--c-line);
+    border-left-width: 8px;
+    border-left-color: var(--tone);
+    border-radius: var(--radius-bear-sm);
+    background: var(--wash);
+    padding: 0.8rem 1.1rem 0.95rem;
+  }
+
+  .call--trap {
+    --tone: var(--c-up);
+    --wash: var(--c-up-wash);
+  }
+
+  .call--note {
+    --tone: var(--c-ink-faint);
+    --wash: var(--c-surface-2);
+  }
+
+  .call--tw {
+    --tone: var(--c-brown);
+    --wash: var(--c-brown-wash);
+  }
+
+  .call--try {
+    --tone: var(--c-brand);
+    --wash: var(--c-brand-wash);
+  }
+
+  .call__head {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin: 0 0 0.4rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .call__icon {
+    display: grid;
+    place-items: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    flex: none;
+    border-radius: 999px;
+    border: 2px solid var(--c-line);
+    background: var(--c-surface);
+    font-size: 0.75rem;
+    line-height: 1;
+  }
+
+  .call__body {
+    font-size: 0.9375rem;
+    line-height: 1.85;
+  }
+
+  .call__body :global(> :first-child) {
+    margin-top: 0;
+  }
+
+  .call__body :global(> :last-child) {
+    margin-bottom: 0;
+  }
+
+  .call__body :global(> * + *) {
+    margin-top: 0.7em;
+  }
+</style>

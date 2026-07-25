@@ -1,0 +1,207 @@
+---
+/**
+ * 課程側欄。所有課程依階段分組，標出目前這一課與已完成的課。
+ * 完成狀態存在 localStorage，所以由前端在載入後補上標記。
+ */
+import { lessonsByStage, lessonHref } from '@/lib/course';
+import BearAvatar from '@/components/bears/BearAvatar.astro';
+
+interface Props {
+  currentId?: string;
+}
+
+const { currentId } = Astro.props;
+const groups = await lessonsByStage();
+---
+
+<nav class="side" aria-label="課程目錄" data-course-nav>
+  {/*
+    預設 open：桌機把 summary 藏起來、內容直接攤開，關著就會變成一片空白且無從點開。
+    手機版由下面的 script 收合。沒有 JS 時維持展開 —— 目錄看得到是比較安全的失敗方式。
+  */}
+  <details class="side__mobile" open>
+    <summary>課程目錄</summary>
+    <div class="side__inner">
+      {
+        groups.map(({ stage, lessons }) => (
+          <section class="side__stage">
+            <h3 class="side__title" style={`--accent:${stage.accent}`}>
+              <BearAvatar bear={stage.bear} mood="neutral" size={26} decorative />
+              <span>
+                {stage.ordinal} {stage.title}
+              </span>
+            </h3>
+
+            {lessons.length === 0 ? (
+              <p class="side__empty">撰寫中</p>
+            ) : (
+              <ol class="side__list">
+                {lessons.map((l) => (
+                  <li>
+                    <a
+                      href={lessonHref(l.id)}
+                      class:list={['side__link', l.id === currentId && 'is-current']}
+                      aria-current={l.id === currentId ? 'page' : undefined}
+                      data-lesson-id={l.id}
+                    >
+                      <span class="side__check" aria-hidden="true" />
+                      <span class="side__text">{l.data.title}</span>
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+        ))
+      }
+    </div>
+  </details>
+</nav>
+
+<script>
+  import { completed } from '@/lib/progress';
+
+  function paint() {
+    const done = completed();
+    for (const a of document.querySelectorAll<HTMLElement>('[data-lesson-id]')) {
+      a.classList.toggle('is-done', done.has(a.dataset.lessonId ?? ''));
+    }
+  }
+
+  paint();
+  document.addEventListener('progress:change', paint);
+
+  // 手機收合、桌機展開。CSS 動不了 details 的 open 屬性，只能用 JS。
+  // 斷點要跟樣式裡的 960px 一致。
+  const wide = window.matchMedia('(min-width: 961px)');
+  const details = document.querySelector<HTMLDetailsElement>('[data-course-nav] details');
+
+  function syncOpen(e: MediaQueryList | MediaQueryListEvent) {
+    if (details) details.open = e.matches;
+  }
+
+  if (details) {
+    syncOpen(wide);
+    wide.addEventListener('change', syncOpen);
+  }
+</script>
+
+<style>
+  .side {
+    font-size: 0.9rem;
+  }
+
+  /* 桌機一律展開；手機收成可點開的目錄，不要吃掉整個第一屏 */
+  .side__mobile > summary {
+    display: none;
+  }
+
+  .side__inner {
+    display: grid;
+    gap: 1.35rem;
+  }
+
+  .side__stage {
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .side__title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--c-ink-soft);
+    padding-bottom: 0.35rem;
+    border-bottom: 2px solid var(--accent, var(--c-line-soft));
+  }
+
+  .side__title :global(svg) {
+    flex: none;
+  }
+
+  .side__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.1rem;
+  }
+
+  .side__link {
+    display: grid;
+    grid-template-columns: 1.05rem 1fr;
+    gap: 0.45rem;
+    align-items: baseline;
+    padding: 0.32rem 0.5rem;
+    border-radius: 10px;
+    color: var(--c-ink-soft);
+    text-decoration: none;
+    line-height: 1.6;
+  }
+
+  .side__link:hover {
+    background: var(--c-surface-2);
+    color: var(--c-ink);
+  }
+
+  .side__link.is-current {
+    background: var(--c-accent-wash);
+    color: var(--c-ink);
+    font-weight: 700;
+  }
+
+  .side__check {
+    width: 1.05rem;
+    height: 1.05rem;
+    border: 2px solid var(--c-line-soft);
+    border-radius: 999px;
+    align-self: center;
+  }
+
+  .side__link.is-done .side__check {
+    border-color: var(--c-down);
+    background: var(--c-down);
+    position: relative;
+  }
+
+  .side__link.is-done .side__check::after {
+    content: '✓';
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 0.6rem;
+    color: #fff;
+    font-weight: 700;
+  }
+
+  .side__empty {
+    margin: 0;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--c-ink-faint);
+  }
+
+  @media (max-width: 960px) {
+    .side__mobile > summary {
+      display: block;
+      cursor: pointer;
+      padding: 0.5rem 0.9rem;
+      border: 2px solid var(--c-line);
+      border-radius: var(--radius-bear-sm);
+      background: var(--c-surface);
+      font-weight: 700;
+      font-size: 0.9375rem;
+      list-style-position: inside;
+    }
+
+    .side__inner {
+      margin-top: 0.75rem;
+      padding: 0.9rem 1rem;
+      border: 2px solid var(--c-line-soft);
+      border-radius: var(--radius-bear-sm);
+    }
+  }
+</style>

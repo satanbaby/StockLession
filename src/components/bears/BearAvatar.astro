@@ -1,0 +1,58 @@
+---
+/**
+ * 一隻熊。純 inline SVG —— 零 JS、零額外請求、無限縮放不糊。
+ *
+ *   <BearAvatar bear="duo" mood="excited" size={96} />
+ */
+import { BEARS } from './parts/bodies';
+import { FACES } from './parts/faces';
+import { VIEWBOX, type BearId, type BearMood } from './parts/geometry';
+
+interface Props {
+  bear: BearId;
+  mood?: BearMood;
+  /** 邊長（px）。SVG 是正方形的 */
+  size?: number;
+  /** 水平鏡射，讓兩隻熊面對面 */
+  flip?: boolean;
+  /** 純裝飾時設 true，螢幕閱讀器會略過 */
+  decorative?: boolean;
+  class?: string;
+}
+
+const {
+  bear,
+  mood = 'neutral',
+  size = 88,
+  flip = false,
+  decorative = false,
+  class: className = '',
+} = Astro.props;
+
+const skin = BEARS[bear];
+
+// clipPath 的 id 必須全頁唯一，否則同一頁出現兩隻阿多時
+// 後面那隻會去套用前面那隻的裁切區域。
+const uid = Math.random().toString(36).slice(2, 9);
+
+const style = Object.entries(skin.vars)
+  .map(([k, v]) => `${k}:${v}`)
+  .join(';');
+
+const inner =
+  skin.behind(uid) + skin.head(uid) + skin.eyeBase(uid) + FACES[mood] + skin.overlay(uid);
+---
+
+<svg
+  class={className}
+  width={size}
+  height={size}
+  viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`}
+  style={style}
+  role={decorative ? 'presentation' : 'img'}
+  aria-hidden={decorative ? 'true' : undefined}
+  aria-label={decorative ? undefined : `${skin.name}（${skin.role}）`}
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <g transform={flip ? `translate(${VIEWBOX},0) scale(-1,1)` : undefined} set:html={inner} />
+</svg>

@@ -1,0 +1,112 @@
+---
+/**
+ * 三熊同框。首頁 hero 與階段封面用。
+ *
+ * 三隻站成一排、高低錯開，中間那隻站前面一點 —— 純排版，沒有 JS。
+ */
+import BearAvatar from './BearAvatar.astro';
+import { BEARS } from './parts/bodies';
+import type { BearId, BearMood } from './parts/geometry';
+
+interface Props {
+  /** 由左到右的三隻熊與各自表情 */
+  cast?: { bear: BearId; mood: BearMood }[];
+  size?: number;
+  /** 顯示名牌 */
+  labels?: boolean;
+  class?: string;
+}
+
+const {
+  cast = [
+    { bear: 'kong', mood: 'worried' },
+    { bear: 'duo', mood: 'excited' },
+    { bear: 'jun', mood: 'neutral' },
+  ],
+  size = 140,
+  labels = true,
+  class: className = '',
+} = Astro.props;
+---
+
+<div class:list={['scene', className]} style={`--scene-size:${size}px`}>
+  {
+    cast.map(({ bear, mood }, i) => {
+      const skin = BEARS[bear];
+      // 中間那隻放大並往下站，做出前後層次
+      const isCenter = i === 1;
+      return (
+        <figure class:list={['scene__slot', isCenter && 'scene__slot--front']}>
+          <BearAvatar
+            bear={bear}
+            mood={mood}
+            size={isCenter ? size * 1.18 : size}
+            flip={i === 2}
+            decorative
+          />
+          {labels && (
+            <figcaption class="scene__label">
+              <b>{skin.name}</b>
+              <span>{skin.role}</span>
+            </figcaption>
+          )}
+        </figure>
+      );
+    })
+  }
+</div>
+
+<style>
+  .scene {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: clamp(0.25rem, 2vw, 1.25rem);
+  }
+
+  .scene__slot {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .scene__slot--front {
+    z-index: 1;
+    margin-bottom: -0.5rem;
+  }
+
+  .scene__slot :global(svg) {
+    max-width: 100%;
+    height: auto;
+    filter: drop-shadow(3px 4px 0 var(--c-shadow));
+  }
+
+  .scene__label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.4;
+    text-align: center;
+  }
+
+  .scene__label b {
+    font-size: 0.95rem;
+  }
+
+  .scene__label span {
+    font-size: 0.75rem;
+    color: var(--c-ink-soft);
+  }
+
+  @media (max-width: 520px) {
+    .scene {
+      gap: 0;
+    }
+
+    .scene__label span {
+      display: none;
+    }
+  }
+</style>

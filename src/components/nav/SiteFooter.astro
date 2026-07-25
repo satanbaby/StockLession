@@ -1,0 +1,78 @@
+---
+const year = new Date().getFullYear();
+---
+
+<footer class="ftr">
+  <div class="ftr__in">
+    <p class="ftr__warn">
+      <strong>本站為技術分析教學用途，不構成任何投資建議。</strong>
+      站上所有圖表與案例都是為了說明指標的運作方式而挑選，包含刻意挑出的失敗案例。
+      技術分析描述的是過去的價格行為，不保證未來結果；實際交易請自行評估風險。
+    </p>
+
+    <p class="ftr__meta">
+      行情資料來源：<a href="https://www.twse.com.tw/" rel="noopener noreferrer" target="_blank"
+        >臺灣證券交易所</a
+      >
+      日線（未還原權值，除權息當日會出現跳空缺口）。標示「示意圖」者為教學用合成資料。
+    </p>
+
+    <p class="ftr__meta">
+      字型 <a
+        href="https://github.com/justfont/open-huninn-font"
+        rel="noopener noreferrer"
+        target="_blank">jf open 粉圓</a
+      >（SIL OFL 1.1）· 圖表引擎
+      <a
+        href="https://github.com/tradingview/lightweight-charts"
+        rel="noopener noreferrer"
+        target="_blank">Lightweight Charts</a
+      > · © {year} 三熊教室
+    </p>
+  </div>
+</footer>
+
+<style>
+  .ftr {
+    border-top: 2px solid var(--c-line);
+    background: var(--c-bg-alt);
+    margin-top: 4rem;
+  }
+
+  .ftr__in {
+    max-width: 60rem;
+    margin-inline: auto;
+    padding: 2rem 1.25rem 2.5rem;
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .ftr__warn {
+    font-size: 0.875rem;
+    line-height: 1.8;
+    color: var(--c-ink-soft);
+    border: 2px dashed var(--c-line-soft);
+    border-radius: var(--radius-bear-sm);
+    padding: 0.85rem 1rem;
+  }
+
+  .ftr__warn strong {
+    color: var(--c-ink);
+  }
+
+  .ftr__meta {
+    font-size: 0.8125rem;
+    color: var(--c-ink-faint);
+    line-height: 1.7;
+  }
+
+  .ftr a {
+    color: var(--c-ink-soft);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .ftr a:hover {
+    color: var(--c-brand-deep);
+  }
+</style>

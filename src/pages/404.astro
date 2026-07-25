@@ -1,0 +1,68 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import BearAvatar from '@/components/bears/BearAvatar.astro';
+---
+
+<BaseLayout title="找不到這一頁" description="這個網址沒有對應的內容。">
+  <div class="nf">
+    <BearAvatar bear="kong" mood="shocked" size={150} decorative />
+    <h1>404</h1>
+    <p class="nf__msg">這個網址找不到東西。可能是連結壞了，或是課程的路徑改過。</p>
+    <div class="nf__links">
+      <a class="btn btn--go" href="/lessons/">回課程總覽</a>
+      <a class="btn" href="/">回首頁</a>
+      <a class="btn" href="/glossary/">查名詞</a>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .nf {
+    display: grid;
+    justify-items: center;
+    text-align: center;
+    gap: 0.5rem;
+    padding: 3rem 0 5rem;
+  }
+
+  .nf h1 {
+    font-size: 3.5rem;
+    font-family: var(--font-mono);
+    letter-spacing: 0.1em;
+    color: var(--c-brand);
+  }
+
+  .nf__msg {
+    color: var(--c-ink-soft);
+    max-width: 26rem;
+    line-height: 1.9;
+  }
+
+  .nf__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    justify-content: center;
+    margin-top: 1rem;
+  }
+
+  .btn {
+    padding: 0.5rem 1.25rem;
+    border: 2px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-surface);
+    color: var(--c-ink);
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: var(--shadow-sticker-sm);
+  }
+
+  .btn:hover {
+    box-shadow: var(--shadow-sticker);
+  }
+
+  .btn--go {
+    background: var(--c-brand);
+    color: var(--c-on-brand);
+  }
+</style>

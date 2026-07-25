@@ -1,0 +1,169 @@
+---
+/**
+ * 圖表的外框：標題、圖例、資料來源、示意圖標記。
+ *
+ * 卡通感全部放在這個外框上 —— 圓角、描邊、貼紙陰影。
+ * 框裡面的 canvas 維持乾淨專業，該有的刻度一個不少。
+ * 反差本身就好看：憨厚的熊指著一張認真的線圖。
+ */
+import { INDICATOR_BY_ID } from '@/lib/indicators';
+
+interface Props {
+  title?: string;
+  /** 這張圖要學員看出什麼 */
+  caption?: string;
+  /** 顯示在圖例的指標 id */
+  legend?: string[];
+  /** 資料標的的顯示名稱 */
+  source?: string;
+  /** 合成資料必須標示 */
+  synthetic?: boolean;
+  class?: string;
+}
+
+const { title, caption, legend = [], source, synthetic = false, class: className = '' } = Astro.props;
+
+// 指標線的顏色索引 → CSS 變數。與 lib/chart/theme.ts 的 series 陣列同序。
+const swatch = (color: number | 'up' | 'down'): string =>
+  color === 'up' ? 'var(--c-up)' : color === 'down' ? 'var(--c-down)' : `var(--chart-${color + 1})`;
+
+const legendItems = legend.flatMap((id) => {
+  const spec = INDICATOR_BY_ID[id];
+  return spec ? spec.series.map((s) => ({ label: s.label, color: swatch(s.color), dashed: s.dashed })) : [];
+});
+---
+
+<figure class:list={['frame', className]}>
+  {
+    (title || synthetic) && (
+      <div class="frame__head">
+        {title && <h4 class="frame__title">{title}</h4>}
+        {synthetic && (
+          <span class="frame__badge" title="這是為了說明型態而製作的合成資料，不是真實行情">
+            示意圖
+          </span>
+        )}
+      </div>
+    )
+  }
+
+  <div class="frame__body"><slot /></div>
+
+  {
+    legendItems.length > 0 && (
+      <div class="frame__legend">
+        {legendItems.map((item) => (
+          <span class="frame__legend-item">
+            <i
+              class:list={['frame__dot', item.dashed && 'frame__dot--dashed']}
+              style={`background:${item.color}`}
+            />
+            {item.label}
+          </span>
+        ))}
+      </div>
+    )
+  }
+
+  {
+    (caption || source) && (
+      <figcaption class="frame__cap">
+        {caption && <span class="frame__caption-text">{caption}</span>}
+        {source && <span class="frame__source">{source}</span>}
+      </figcaption>
+    )
+  }
+</figure>
+
+<style>
+  .frame {
+    margin: 1.75rem 0;
+    background: var(--c-surface);
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    box-shadow: var(--shadow-sticker);
+    overflow: hidden;
+  }
+
+  .frame__head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    border-bottom: 2px solid var(--c-line);
+    background: var(--c-surface-2);
+  }
+
+  .frame__title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  .frame__badge {
+    margin-left: auto;
+    flex: none;
+    font-size: 0.75rem;
+    padding: 0.1rem 0.55rem;
+    border-radius: 999px;
+    border: 2px solid var(--c-line);
+    background: var(--c-accent);
+    color: #3d3230;
+    cursor: help;
+  }
+
+  .frame__body {
+    padding: 0.5rem;
+  }
+
+  .frame__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.9rem;
+    padding: 0 1rem 0.6rem;
+    font-size: 0.8125rem;
+    color: var(--c-ink-soft);
+  }
+
+  .frame__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .frame__dot {
+    width: 0.85rem;
+    height: 0.3rem;
+    border-radius: 2px;
+    flex: none;
+  }
+
+  .frame__dot--dashed {
+    background-image: linear-gradient(90deg, currentColor 50%, transparent 50%);
+    background-size: 4px 100%;
+    opacity: 0.75;
+  }
+
+  .frame__cap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
+    align-items: baseline;
+    padding: 0.7rem 1rem 0.85rem;
+    border-top: 2px dashed var(--c-line-soft);
+    font-size: 0.875rem;
+    line-height: 1.7;
+    color: var(--c-ink-soft);
+  }
+
+  .frame__caption-text {
+    flex: 1 1 16rem;
+  }
+
+  .frame__source {
+    font-size: 0.75rem;
+    color: var(--c-ink-faint);
+    margin-left: auto;
+    white-space: nowrap;
+  }
+</style>

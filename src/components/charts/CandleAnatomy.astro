@@ -1,0 +1,246 @@
+---
+/**
+ * 單根 K 線的解剖圖。純 SVG，不需要圖表引擎。
+ *
+ * 這是全站唯一「該用示意圖而不是真實資料」的地方：
+ * 講四個價格與影線的關係時，真實 K 棒的比例是干擾，不是資訊。
+ *
+ *   <CandleAnatomy />                 完整標註的解剖圖
+ *   <CandleAnatomy variant="compare" />  常見形狀對照
+ */
+
+interface Props {
+  variant?: 'anatomy' | 'compare';
+  class?: string;
+}
+
+const { variant = 'anatomy', class: className = '' } = Astro.props;
+
+/** 對照圖用的形狀，數值是 0~100 的相對高度（0 在底部） */
+const shapes = [
+  {
+    name: '大陽線',
+    dir: 'up' as const,
+    high: 96,
+    low: 6,
+    open: 18,
+    close: 88,
+    note: '開低走高，一路收在高檔。買方主導',
+  },
+  {
+    name: '大陰線',
+    dir: 'down' as const,
+    high: 94,
+    low: 4,
+    open: 86,
+    close: 14,
+    note: '開高走低，收在低檔。賣方主導',
+  },
+  {
+    name: '十字線',
+    dir: 'flat' as const,
+    high: 92,
+    low: 8,
+    open: 50,
+    close: 50,
+    note: '開盤收盤幾乎同價，多空僵持。常出現在轉折前',
+  },
+  {
+    name: '一字線',
+    dir: 'up' as const,
+    high: 62,
+    low: 60,
+    open: 60,
+    close: 62,
+    note: '開高低收全在同一價。台股漲跌停鎖死時的樣子',
+  },
+];
+
+const CH = 150;
+const CW = 58;
+const body = 26;
+const y = (v: number) => CH - (v / 100) * CH;
+---
+
+{
+  variant === 'anatomy' ? (
+    <div class:list={['anat', className]}>
+      <svg viewBox="0 0 430 300" role="img" aria-label="K 線各部位名稱解剖圖" class="anat__svg">
+        {/* 四個價位的水平參考線 */}
+        {[30, 92, 198, 262].map((py) => (
+          <line
+            x1="150"
+            y1={py}
+            x2="252"
+            y2={py}
+            stroke="var(--c-line-soft)"
+            stroke-width="1.5"
+            stroke-dasharray="4 4"
+          />
+        ))}
+
+        {/* 影線 */}
+        <line x1="200" y1="30" x2="200" y2="262" stroke="var(--c-up)" stroke-width="3" />
+        {/* 實體 */}
+        <rect x="172" y="92" width="56" height="106" rx="3" fill="var(--c-up)" />
+
+        {/* 左側：四個價格 */}
+        {[
+          [30, '最高價'],
+          [92, '收盤價'],
+          [198, '開盤價'],
+          [262, '最低價'],
+        ].map(([py, name]) => (
+          <text
+            x="144"
+            y={(py as number) + 5}
+            text-anchor="end"
+            font-size="14"
+            fill="var(--c-ink)"
+            font-weight="700"
+          >
+            {name}
+          </text>
+        ))}
+
+        {/* 右側：三個部位，用括號標出範圍 */}
+        <g stroke="var(--c-brown)" stroke-width="2" fill="none" stroke-linecap="round">
+          <path d="M258 32 h8 v56 h-8" />
+          <path d="M258 94 h8 v102 h-8" />
+          <path d="M258 202 h8 v58 h-8" />
+        </g>
+        <text x="274" y="65" font-size="14" fill="var(--c-ink)" font-weight="700">
+          上影線
+        </text>
+        <text x="274" y="141" font-size="14" fill="var(--c-ink)" font-weight="700">
+          實體
+        </text>
+        <text x="274" y="236" font-size="14" fill="var(--c-ink)" font-weight="700">
+          下影線
+        </text>
+
+        <text x="274" y="84" font-size="11.5" fill="var(--c-ink-soft)">
+          衝上去但沒守住
+        </text>
+        <text x="274" y="160" font-size="11.5" fill="var(--c-ink-soft)">
+          開盤到收盤的差距
+        </text>
+        <text x="274" y="255" font-size="11.5" fill="var(--c-ink-soft)">
+          殺下去但被買回來
+        </text>
+
+        <text x="200" y="292" text-anchor="middle" font-size="12.5" fill="var(--c-ink-soft)">
+          收盤 &gt; 開盤 → 紅 K（陽線）
+        </text>
+      </svg>
+
+      <p class="anat__note">
+        一根 K 線壓縮了一整天的價格故事：從哪裡開始、衝到多高、殺到多低、最後停在哪。
+        <strong>影線代表被否定的價格</strong> —— 長上影線是「有人想拉但被賣壓打下來」，
+        長下影線則是「有人想殺但被買盤接走」。
+      </p>
+    </div>
+  ) : (
+    <div class:list={['cmp', className]}>
+      {shapes.map((s) => {
+        const top = Math.max(s.open, s.close);
+        const bottom = Math.min(s.open, s.close);
+        const color =
+          s.dir === 'up' ? 'var(--c-up)' : s.dir === 'down' ? 'var(--c-down)' : 'var(--c-flat)';
+        // 十字線與一字線的實體高度趨近 0，給它一個最小厚度才看得見
+        const h = Math.max(y(bottom) - y(top), 3);
+        return (
+          <figure class="cmp__item">
+            <svg viewBox={`0 0 ${CW} ${CH}`} role="img" aria-label={s.name} class="cmp__svg">
+              <line
+                x1={CW / 2}
+                y1={y(s.high)}
+                x2={CW / 2}
+                y2={y(s.low)}
+                stroke={color}
+                stroke-width="3"
+              />
+              <rect x={(CW - body) / 2} y={y(top)} width={body} height={h} rx="2" fill={color} />
+            </svg>
+            <figcaption>
+              <b>{s.name}</b>
+              <span>{s.note}</span>
+            </figcaption>
+          </figure>
+        );
+      })}
+    </div>
+  )
+}
+
+<style>
+  .anat {
+    margin: 1.75rem 0;
+    background: var(--c-surface);
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    box-shadow: var(--shadow-sticker);
+    padding: 1.25rem 1rem 1rem;
+  }
+
+  .anat__svg {
+    width: 100%;
+    max-width: 27rem;
+    height: auto;
+    margin-inline: auto;
+    font-family: inherit;
+  }
+
+  .anat__note {
+    margin: 1rem 0 0;
+    padding-top: 0.85rem;
+    border-top: 2px dashed var(--c-line-soft);
+    font-size: 0.9375rem;
+    line-height: 1.85;
+    color: var(--c-ink-soft);
+  }
+
+  .anat__note strong {
+    color: var(--c-ink);
+  }
+
+  .cmp {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: 0.85rem;
+    margin: 1.75rem 0;
+  }
+
+  .cmp__item {
+    margin: 0;
+    background: var(--c-surface);
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    box-shadow: var(--shadow-sticker-sm);
+    padding: 0.9rem 0.75rem 1rem;
+    display: grid;
+    justify-items: center;
+    gap: 0.5rem;
+  }
+
+  .cmp__svg {
+    width: 3.25rem;
+    height: 8.5rem;
+  }
+
+  .cmp__item figcaption {
+    text-align: center;
+    display: grid;
+    gap: 0.2rem;
+  }
+
+  .cmp__item b {
+    font-size: 0.95rem;
+  }
+
+  .cmp__item span {
+    font-size: 0.8125rem;
+    line-height: 1.65;
+    color: var(--c-ink-soft);
+  }
+</style>

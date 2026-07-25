@@ -1,0 +1,497 @@
+@import 'tailwindcss';
+
+/* KaTeX 的排版靠 CSS 定位撐起來（分數線、根號、上下標都是）。
+   少了它，公式會退化成一行擠在一起的符號，看起來像壞掉。 */
+@import 'katex/dist/katex.min.css';
+
+/* jf open 粉圓的 @font-face 定義在 public/fonts/huninn/result.css，
+   由 BaseLayout 直接 <link> 進來 —— 那是 public/ 的靜態檔，
+   不走 Vite 的 CSS pipeline，所以不能在這裡 @import。
+   切片流程見 scripts/build-font.mjs。SIL OFL 1.1，可自由商用。 */
+
+/* 深色模式：跟隨系統，但 [data-theme] 可覆寫（手動切換用）。 */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme='light']) *, :root:not([data-theme='light'])) {
+      @slot;
+    }
+  }
+  &:where([data-theme='dark'] *, [data-theme='dark']) {
+    @slot;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   語意色票
+   淺色是暖米白 + 深棕描線（不是純黑 —— 這是卡通感的關鍵）。
+   紅漲綠跌在明暗兩個模式下刻意保持一致：交易顏色不該隨主題漂移。
+--------------------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+
+  --c-bg: #fff8f0;
+  --c-bg-alt: #fbeee0;
+  --c-surface: #ffffff;
+  --c-surface-2: #fdf5ec;
+
+  --c-ink: #3d3230;
+  --c-ink-soft: #7a6a63;
+  --c-ink-faint: #a89890;
+
+  --c-line: #3d3230;
+  --c-line-soft: #dccbba;
+
+  --c-brand: #5ba8d4;
+  --c-brand-deep: #3a86b5;
+  --c-brand-wash: #dceff9;
+  --c-on-brand: #ffffff;
+
+  --c-accent: #f5c86b;
+  --c-accent-wash: #fdf0d3;
+  --c-brown: #b5814f;
+  --c-brown-wash: #f3e4d3;
+
+  /* 交易色：台股慣例紅漲綠跌 */
+  --c-up: #e64545;
+  --c-down: #26a06a;
+  --c-flat: #8a8a8a;
+  --c-up-wash: #fbe3e3;
+  --c-down-wash: #ddf2e8;
+
+  --c-shadow: #3d3230;
+
+  /* 圖表指標線的分類色。
+     必須與 src/lib/chart/theme.ts 的 ChartPalette.series 保持一致 ——
+     canvas 由 lightweight-charts 畫（吃色碼字串），圖例由 CSS 畫（吃變數），
+     兩套渲染系統各自需要一份。改色時兩邊都要動。 */
+  --chart-1: #3e7fb5;
+  --chart-2: #e0913c;
+  --chart-3: #8b6fb8;
+  --chart-4: #2e9e9e;
+  --chart-5: #c4608e;
+
+  /* 三熊的毛色。--*-line 是輪廓線，用同色系深一階而不是黑色：
+     純黑會把扁平柔和的味道打死，但近白色的熊沒有輪廓又會消失在米白底上。 */
+  --bear-duo-fur: #c9915c;
+  --bear-duo-fur-dark: #a97441;
+  --bear-duo-line: #9c6a3a;
+  --bear-duo-belly: #efd4ae;
+  --bear-duo-cloth: #e2574c;
+
+  --bear-kong-fur: #fbf6ef;
+  --bear-kong-fur-dark: #e2d8cb;
+  --bear-kong-line: #cdbfae;
+  --bear-kong-patch: #46393a;
+  --bear-kong-cloth: #9ec7e8;
+
+  --bear-jun-fur: #e9f0f7;
+  --bear-jun-fur-dark: #c6d4e2;
+  --bear-jun-line: #a9bccd;
+  --bear-jun-belly: #f9fcff;
+  --bear-jun-cloth: #6f8ba3;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --c-bg: #241e1a;
+    --c-bg-alt: #1c1714;
+    --c-surface: #322a25;
+    --c-surface-2: #3b322c;
+
+    --c-ink: #f6ece0;
+    --c-ink-soft: #c3b3a6;
+    --c-ink-faint: #8d7f74;
+
+    --c-line: #f1e3d4;
+    --c-line-soft: #4e423a;
+
+    --c-brand: #7cc0e6;
+    --c-brand-deep: #a5d6f2;
+    --c-brand-wash: #2b3d47;
+    --c-on-brand: #16242c;
+
+    --c-accent: #f7d183;
+    --c-accent-wash: #453722;
+    --c-brown: #d3a173;
+    --c-brown-wash: #3f3025;
+
+    --c-up: #ff6b6b;
+    --c-down: #3fca8e;
+    --c-up-wash: #452626;
+    --c-down-wash: #1e3b30;
+
+    --c-shadow: #100c0a;
+
+    --chart-1: #6fb3e0;
+    --chart-2: #f0ad60;
+    --chart-3: #b193dd;
+    --chart-4: #4cc4c4;
+    --chart-5: #e58cb6;
+
+    /* 深色模式下白熊反而要壓暗一點，不然會在暗棕底上刺眼 */
+    --bear-kong-fur: #ece3d6;
+    --bear-kong-line: #b9aa99;
+    --bear-jun-fur: #dbe6f0;
+    --bear-jun-line: #9aaec1;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --c-bg: #241e1a;
+  --c-bg-alt: #1c1714;
+  --c-surface: #322a25;
+  --c-surface-2: #3b322c;
+
+  --c-ink: #f6ece0;
+  --c-ink-soft: #c3b3a6;
+  --c-ink-faint: #8d7f74;
+
+  --c-line: #f1e3d4;
+  --c-line-soft: #4e423a;
+
+  --c-brand: #7cc0e6;
+  --c-brand-deep: #a5d6f2;
+  --c-brand-wash: #2b3d47;
+  --c-on-brand: #16242c;
+
+  --c-accent: #f7d183;
+  --c-accent-wash: #453722;
+  --c-brown: #d3a173;
+  --c-brown-wash: #3f3025;
+
+  --c-up: #ff6b6b;
+  --c-down: #3fca8e;
+  --c-up-wash: #452626;
+  --c-down-wash: #1e3b30;
+
+  --c-shadow: #100c0a;
+
+  --chart-1: #6fb3e0;
+  --chart-2: #f0ad60;
+  --chart-3: #b193dd;
+  --chart-4: #4cc4c4;
+  --chart-5: #e58cb6;
+
+  --bear-kong-fur: #ece3d6;
+  --bear-kong-line: #b9aa99;
+  --bear-jun-fur: #dbe6f0;
+  --bear-jun-line: #9aaec1;
+}
+
+/* ---------------------------------------------------------------------------
+   Tailwind token 對接
+--------------------------------------------------------------------------- */
+@theme inline {
+  --color-bg: var(--c-bg);
+  --color-bg-alt: var(--c-bg-alt);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+
+  --color-ink: var(--c-ink);
+  --color-ink-soft: var(--c-ink-soft);
+  --color-ink-faint: var(--c-ink-faint);
+
+  --color-line: var(--c-line);
+  --color-line-soft: var(--c-line-soft);
+
+  --color-brand: var(--c-brand);
+  --color-brand-deep: var(--c-brand-deep);
+  --color-brand-wash: var(--c-brand-wash);
+  --color-on-brand: var(--c-on-brand);
+
+  --color-accent: var(--c-accent);
+  --color-accent-wash: var(--c-accent-wash);
+  --color-brown: var(--c-brown);
+  --color-brown-wash: var(--c-brown-wash);
+
+  --color-up: var(--c-up);
+  --color-down: var(--c-down);
+  --color-flat: var(--c-flat);
+  --color-up-wash: var(--c-up-wash);
+  --color-down-wash: var(--c-down-wash);
+
+  --font-round:
+    'Huninn', 'jf open 粉圓', ui-rounded, 'Varela Round', 'Noto Sans TC',
+    'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, 'Noto Sans Mono', monospace;
+
+  --radius-bear: 20px;
+  --radius-bear-sm: 12px;
+  --radius-bear-lg: 28px;
+
+  /* 貼紙感：實心位移陰影，不是模糊陰影 */
+  --shadow-sticker: 4px 4px 0 var(--c-shadow);
+  --shadow-sticker-sm: 2px 2px 0 var(--c-shadow);
+  --shadow-sticker-lg: 6px 6px 0 var(--c-shadow);
+}
+
+/* ---------------------------------------------------------------------------
+   基礎樣式
+--------------------------------------------------------------------------- */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5.5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--c-bg);
+    color: var(--c-ink);
+    font-family: var(--font-round);
+    line-height: 1.85;
+    letter-spacing: 0.01em;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 數字一律等寬，價格與指標值上下對齊才好讀 */
+  table,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--c-brand);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: var(--c-accent);
+    color: var(--c-ink);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    line-height: 1.4;
+    font-weight: 700;
+    letter-spacing: 0.005em;
+  }
+
+  svg {
+    display: block;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   共用元件樣式
+--------------------------------------------------------------------------- */
+@utility card-bear {
+  background: var(--c-surface);
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius-bear);
+  box-shadow: var(--shadow-sticker);
+}
+
+@utility chip-bear {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.15em 0.7em;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  border: 2px solid var(--c-line);
+  border-radius: 999px;
+  background: var(--c-surface);
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+   課文排版（手寫，不用 typography plugin —— 卡通風需要的細節它給不了）
+--------------------------------------------------------------------------- */
+.prose {
+  color: var(--c-ink);
+  font-size: 1.0625rem;
+}
+
+.prose > * + * {
+  margin-top: 1.15em;
+}
+
+.prose h2 {
+  margin-top: 2.6em;
+  margin-bottom: 0.9em;
+  font-size: 1.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  scroll-margin-top: 6rem;
+}
+
+.prose h2::before {
+  content: '';
+  flex: none;
+  width: 0.85rem;
+  height: 1.5rem;
+  border: 2px solid var(--c-line);
+  border-radius: 6px;
+  background: var(--c-accent);
+}
+
+.prose h3 {
+  margin-top: 2em;
+  margin-bottom: 0.6em;
+  font-size: 1.24rem;
+  scroll-margin-top: 6rem;
+}
+
+.prose h4 {
+  margin-top: 1.6em;
+  margin-bottom: 0.4em;
+  font-size: 1.06rem;
+  color: var(--c-ink-soft);
+}
+
+.prose a {
+  color: var(--c-brand-deep);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--c-brand);
+}
+
+.prose a:hover {
+  background: var(--c-brand-wash);
+}
+
+.prose strong {
+  font-weight: 700;
+  background: linear-gradient(transparent 62%, var(--c-accent-wash) 62%);
+  padding: 0 0.1em;
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 1.5em;
+}
+
+.prose ul {
+  list-style: none;
+}
+
+.prose ul > li {
+  position: relative;
+  padding-left: 0.25em;
+}
+
+.prose ul > li::before {
+  content: '';
+  position: absolute;
+  left: -1em;
+  top: 0.72em;
+  width: 0.45em;
+  height: 0.45em;
+  border-radius: 999px;
+  background: var(--c-brown);
+}
+
+.prose ol {
+  list-style: decimal;
+}
+
+.prose ol > li::marker {
+  color: var(--c-brown);
+  font-weight: 700;
+}
+
+.prose li + li {
+  margin-top: 0.4em;
+}
+
+.prose blockquote {
+  border-left: 4px solid var(--c-brown);
+  background: var(--c-brown-wash);
+  border-radius: 0 var(--radius-bear-sm) var(--radius-bear-sm) 0;
+  padding: 0.85em 1.15em;
+  color: var(--c-ink-soft);
+}
+
+.prose blockquote > * + * {
+  margin-top: 0.6em;
+}
+
+.prose code:not(pre code) {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-line-soft);
+  border-radius: 6px;
+  padding: 0.1em 0.4em;
+}
+
+.prose pre {
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius-bear-sm);
+  padding: 1em 1.15em;
+  overflow-x: auto;
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius-bear-sm);
+  overflow: hidden;
+  font-size: 0.9375rem;
+}
+
+.prose thead {
+  background: var(--c-accent-wash);
+}
+
+.prose th,
+.prose td {
+  padding: 0.6em 0.9em;
+  text-align: left;
+  border-bottom: 1px solid var(--c-line-soft);
+}
+
+.prose tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.prose hr {
+  border: none;
+  border-top: 2px dashed var(--c-line-soft);
+  margin: 2.4em 0;
+}
+
+/* 寬內容（表格、程式碼、圖表）自己捲，頁面本身永遠不橫向捲 */
+.prose .scroll-x {
+  overflow-x: auto;
+}
+
+/* KaTeX 在暗色模式要跟著換色 */
+.katex {
+  color: var(--c-ink);
+  font-size: 1.05em;
+}
+
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.4em 0;
+}

@@ -1,0 +1,422 @@
+---
+/**
+ * 指標實驗室 —— 自由組合指標、換標的、調參數。
+ *
+ * 課文裡的 IndicatorLab 是「針對這一課鎖定好的實驗」，
+ * 這一頁則是拿掉所有限制的沙盒：學完之後自己來玩。
+ *
+ * 所有指標的參數控制項都在建置期一次渲染完，前端只負責顯示／隱藏 ——
+ * 這樣就不必在客戶端重寫一遍表單產生邏輯。
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import BearAvatar from '@/components/bears/BearAvatar.astro';
+import { INDICATORS, CATEGORY_LABELS, defaultParams } from '@/lib/indicators';
+import { SYMBOL_IDS, label, dataset } from '@/lib/data';
+
+const RANGES = [
+  { key: '1y', label: '近 1 年', bars: 245 },
+  { key: '2y', label: '近 2 年', bars: 490 },
+  { key: 'all', label: '全部', bars: null },
+];
+
+const DEFAULT_ACTIVE = ['ma', 'kd'];
+const DEFAULT_SYMBOL = '2330';
+
+const config = {
+  defaultSymbol: DEFAULT_SYMBOL,
+  defaultActive: DEFAULT_ACTIVE,
+  ranges: RANGES,
+};
+
+const byCategory = (['trend', 'momentum', 'volatility', 'volume'] as const).map((cat) => ({
+  cat,
+  label: CATEGORY_LABELS[cat],
+  items: INDICATORS.filter((i) => i.category === cat),
+}));
+---
+
+<BaseLayout
+  title="指標實驗室"
+  description="自由組合技術指標、切換標的與參數，即時看指標怎麼隨參數改變。"
+>
+  <header class="head">
+    <BearAvatar bear="jun" mood="thinking" size={72} decorative class="head__bear" />
+    <div>
+      <h1>指標實驗室</h1>
+      <p>
+        把指標疊上去、把參數拉一拉，看它怎麼變。
+        <b>參數沒有「正確答案」</b>——同一個指標在不同標的、不同波動水準下的最佳參數本來就不同，
+        自己動手試出手感，比背下「KD 用 9,3,3」有用得多。
+      </p>
+    </div>
+  </header>
+
+  <indicator-workbench class="wb">
+    <script type="application/json" set:html={JSON.stringify(config)} is:inline></script>
+
+    <div class="wb__bar">
+      <div class="wb__set" role="group" aria-label="選擇標的">
+        {
+          SYMBOL_IDS.map((s) => (
+            <button
+              type="button"
+              class="pill"
+              data-symbol={s}
+              aria-pressed={s === DEFAULT_SYMBOL ? 'true' : 'false'}
+              title={dataset(s).note}
+            >
+              {label(s)}
+            </button>
+          ))
+        }
+      </div>
+
+      <div class="wb__set" role="group" aria-label="選擇區間">
+        {
+          RANGES.map((r, i) => (
+            <button
+              type="button"
+              class="pill pill--sm"
+              data-range={r.key}
+              aria-pressed={i === 0 ? 'true' : 'false'}
+            >
+              {r.label}
+            </button>
+          ))
+        }
+      </div>
+    </div>
+
+    <div class="wb__picker">
+      {
+        byCategory.map((group) => (
+          <fieldset class="pick">
+            <legend>{group.label}</legend>
+            {group.items.map((spec) => (
+              <label class="pick__item" title={spec.question}>
+                <input
+                  type="checkbox"
+                  data-toggle={spec.id}
+                  checked={DEFAULT_ACTIVE.includes(spec.id)}
+                />
+                <span>{spec.short}</span>
+                <small>{spec.name.replace(spec.short, '').replace(/^[\s／]+/, '')}</small>
+              </label>
+            ))}
+          </fieldset>
+        ))
+      }
+    </div>
+
+    <div class="wb__chart">
+      <div data-chart-canvas class="canvas" style="height:640px"></div>
+      <p class="wb__error" data-load-error hidden>
+        行情資料讀取失敗。請確認網站是以 <code>npm run build</code> 產出的版本執行。
+      </p>
+    </div>
+
+    <div class="wb__params" data-params-panel>
+      {
+        INDICATORS.map((spec) => {
+          const params = defaultParams(spec);
+          if (spec.params.length === 0) return null;
+          return (
+            <fieldset class="pgroup" data-param-group={spec.id} hidden={!DEFAULT_ACTIVE.includes(spec.id)}>
+              <legend>{spec.short}</legend>
+              {spec.params.map((p) =>
+                p.kind === 'number' ? (
+                  <label class="prow">
+                    <span class="prow__label" title={p.hint}>
+                      {p.label}
+                    </span>
+                    <input
+                      type="range"
+                      min={p.min}
+                      max={p.max}
+                      step={p.step}
+                      value={String(params[p.key])}
+                      data-indicator={spec.id}
+                      data-param={p.key}
+                      aria-label={`${spec.short} ${p.label}`}
+                    />
+                    <output class="prow__value" data-readout={`${spec.id}:${p.key}`}>
+                      {String(params[p.key])}
+                    </output>
+                  </label>
+                ) : (
+                  <label class="prow">
+                    <span class="prow__label" title={p.hint}>
+                      {p.label}
+                    </span>
+                    <select
+                      class="prow__select"
+                      data-indicator={spec.id}
+                      data-param={p.key}
+                      aria-label={`${spec.short} ${p.label}`}
+                    >
+                      {p.choices?.map((c) => (
+                        <option value={c.value} selected={c.value === params[p.key]}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ),
+              )}
+            </fieldset>
+          );
+        })
+      }
+    </div>
+  </indicator-workbench>
+
+  <section class="tips">
+    <h2>幾個值得動手試試的問題</h2>
+    <ul>
+      <li>把 MA 週期從 5 慢慢拉到 240，看均線從「貼著價格跑」變成「幾乎是一條直線」。反應快與雜訊少，永遠是這條軸上的取捨。</li>
+      <li>同一個週期切換 SMA 與 EMA，看轉折點差幾天。EMA 快，但快出來的那幾天裡有多少是假訊號？</li>
+      <li>把 KD 的 RSV 期間從 9 拉到 30，超買超賣的次數會少非常多 —— 訊號變少不代表變準，只是門檻變高。</li>
+      <li>換到 <b>2603 長榮</b>，用同一組參數看。同樣的 KD 9,3,3，在高波動個股上鈍化的時間長得多。</li>
+      <li>開 <b>ADX</b> 搭配任一順勢指標，觀察 ADX 低於 20 的那些期間，順勢訊號的表現有多糟。</li>
+    </ul>
+  </section>
+</BaseLayout>
+
+<script>
+  import '@/lib/chart/elements';
+</script>
+
+<style>
+  .head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .head__bear {
+    flex: none;
+    border: 2px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-brand-wash);
+  }
+
+  .head h1 {
+    font-size: 1.85rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .head p {
+    color: var(--c-ink-soft);
+    font-size: 0.9375rem;
+    line-height: 1.85;
+  }
+
+  .head b {
+    color: var(--c-ink);
+  }
+
+  .wb {
+    display: block;
+  }
+
+  .wb__bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.85rem;
+  }
+
+  .wb__set {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+  }
+
+  .pill {
+    font: inherit;
+    font-size: 0.875rem;
+    padding: 0.28rem 0.85rem;
+    border: 2px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-surface);
+    color: var(--c-ink);
+    cursor: pointer;
+  }
+
+  .pill--sm {
+    font-size: 0.8125rem;
+    padding: 0.22rem 0.7rem;
+  }
+
+  .pill:hover {
+    background: var(--c-accent-wash);
+  }
+
+  .pill[aria-pressed='true'] {
+    background: var(--c-brand);
+    color: var(--c-on-brand);
+    box-shadow: var(--shadow-sticker-sm);
+  }
+
+  .wb__picker {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+  }
+
+  .pick {
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear-sm);
+    background: var(--c-surface);
+    padding: 0.35rem 0.7rem 0.6rem;
+    margin: 0;
+  }
+
+  .pick legend {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--c-ink-soft);
+    padding-inline: 0.3rem;
+  }
+
+  .pick__item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding-block: 0.18rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+  }
+
+  .pick__item input {
+    accent-color: var(--c-brand);
+    cursor: pointer;
+  }
+
+  .pick__item small {
+    color: var(--c-ink-faint);
+    font-size: 0.75rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .wb__chart {
+    background: var(--c-surface);
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    box-shadow: var(--shadow-sticker);
+    padding: 0.5rem;
+  }
+
+  .canvas {
+    width: 100%;
+    border-radius: var(--radius-bear-sm);
+    overflow: hidden;
+  }
+
+  .canvas[data-loading],
+  .canvas:not([data-ready]) {
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--c-surface-2) 0 10px,
+      var(--c-surface) 10px 20px
+    );
+  }
+
+  .wb__error {
+    margin: 0.5rem;
+    padding: 0.6rem 0.85rem;
+    border: 2px solid var(--c-up);
+    border-radius: var(--radius-bear-sm);
+    background: var(--c-up-wash);
+    font-size: 0.875rem;
+  }
+
+  .wb__params {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 0.6rem;
+    margin-top: 0.85rem;
+  }
+
+  .pgroup {
+    border: 2px solid var(--c-line-soft);
+    border-radius: var(--radius-bear-sm);
+    padding: 0.35rem 0.8rem 0.6rem;
+    margin: 0;
+  }
+
+  .pgroup legend {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--c-ink-soft);
+    padding-inline: 0.3rem;
+  }
+
+  .prow {
+    display: grid;
+    grid-template-columns: minmax(4.5rem, auto) 1fr 2.6rem;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 0.8125rem;
+    padding-block: 0.15rem;
+  }
+
+  .prow__label {
+    color: var(--c-ink-soft);
+    white-space: nowrap;
+  }
+
+  .prow__value {
+    font-family: var(--font-mono);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .prow__select {
+    font: inherit;
+    font-size: 0.8125rem;
+    padding: 0.15rem 0.4rem;
+    border: 2px solid var(--c-line-soft);
+    border-radius: 8px;
+    background: var(--c-surface);
+    color: var(--c-ink);
+    grid-column: 2 / -1;
+  }
+
+  input[type='range'] {
+    width: 100%;
+    accent-color: var(--c-brand);
+    cursor: pointer;
+  }
+
+  .tips {
+    margin-top: 3rem;
+    border: 2px dashed var(--c-line-soft);
+    border-radius: var(--radius-bear);
+    padding: 1.25rem 1.5rem;
+  }
+
+  .tips h2 {
+    font-size: 1.2rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .tips ul {
+    display: grid;
+    gap: 0.6rem;
+    padding-left: 1.2rem;
+    font-size: 0.9375rem;
+    line-height: 1.85;
+    color: var(--c-ink-soft);
+  }
+
+  .tips b {
+    color: var(--c-ink);
+  }
+</style>

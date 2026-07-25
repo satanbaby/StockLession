@@ -1,0 +1,326 @@
+---
+/**
+ * 可調參數的互動圖 —— 整個網站的核心元件。
+ *
+ * 「MA20 跟 MA60 差在哪」用文字講半天，不如讓學員把滑桿從 20 拖到 60，
+ * 看著線一邊變平滑一邊變遲鈍。這個元件就是為了那三秒鐘存在的。
+ *
+ *   <IndicatorLab symbol="2330" from="2024-01-01" panes={[{ id: 'kd' }]} />
+ *
+ * 控制項完全由 lib/indicators 的登錄表自動生成，新增指標不用改這裡。
+ */
+import ChartFrame from './ChartFrame.astro';
+import { slice, label, dataset, type SymbolId } from '@/lib/data';
+import { INDICATOR_BY_ID, defaultParams, type ParamValues } from '@/lib/indicators';
+import type { Bar } from '@/lib/indicators/types';
+
+interface LayerConfig {
+  id: string;
+  params?: ParamValues;
+}
+
+interface Props {
+  symbol?: SymbolId;
+  bars?: Bar[];
+  from?: string;
+  to?: string;
+  last?: number;
+  warmup?: number;
+  overlays?: LayerConfig[];
+  panes?: LayerConfig[];
+  showVolume?: boolean;
+  height?: number;
+  paneHeight?: number;
+  title?: string;
+  caption?: string;
+  /** 展開「這個指標在回答什麼」的說明 */
+  showExplainer?: boolean;
+  synthetic?: boolean;
+  class?: string;
+}
+
+const {
+  symbol,
+  bars: rawBars,
+  from,
+  to,
+  last,
+  warmup = 0,
+  overlays = [],
+  panes = [],
+  showVolume = false,
+  height = 380,
+  paneHeight = 140,
+  title,
+  caption,
+  showExplainer = true,
+  synthetic = false,
+  class: className = '',
+} = Astro.props;
+
+if (!symbol && !rawBars) throw new Error('IndicatorLab 需要 symbol 或 bars 其中之一');
+
+const picked = symbol
+  ? slice(symbol, { from, to, last, warmup })
+  : { bars: rawBars!, visibleRange: undefined };
+
+const layers = [...overlays, ...panes];
+const specs = layers.flatMap((l) => {
+  const spec = INDICATOR_BY_ID[l.id];
+  return spec ? [{ spec, params: { ...defaultParams(spec), ...l.params } }] : [];
+});
+
+const config = {
+  bars: picked.bars,
+  overlays,
+  panes,
+  showVolume,
+  height,
+  paneHeight,
+  visibleRange: picked.visibleRange,
+};
+
+const source = symbol ? `${label(symbol)} 日線 · ${dataset(symbol).source}` : '教學用合成資料';
+const hasVolume = showVolume && picked.bars.some((b) => b.volume > 0);
+const totalHeight =
+  height + panes.length * paneHeight + (hasVolume ? Math.round(paneHeight * 0.7) : 0);
+
+const hasControls = specs.some((s) => s.spec.params.length > 0);
+---
+
+<ChartFrame
+  title={title}
+  caption={caption}
+  legend={layers.map((l) => l.id)}
+  source={source}
+  synthetic={synthetic}
+  class={className}
+>
+  <indicator-lab>
+    <div data-chart-canvas style={`height:${totalHeight}px`} class="canvas"></div>
+    <script type="application/json" set:html={JSON.stringify(config)} is:inline></script>
+
+    {
+      hasControls && (
+        <div class="ctrl">
+          {specs.map(({ spec, params }) => (
+            <fieldset class="ctrl__group">
+              <legend class="ctrl__legend">{spec.short}</legend>
+              {spec.params.map((p) =>
+                p.kind === 'number' ? (
+                  <label class="ctrl__row">
+                    <span class="ctrl__label">
+                      {p.label}
+                      {p.hint && (
+                        <i class="ctrl__hint" title={p.hint}>
+                          ?
+                        </i>
+                      )}
+                    </span>
+                    <input
+                      type="range"
+                      min={p.min}
+                      max={p.max}
+                      step={p.step}
+                      value={String(params[p.key])}
+                      data-indicator={spec.id}
+                      data-param={p.key}
+                      aria-label={`${spec.short} ${p.label}`}
+                    />
+                    <output class="ctrl__value" data-readout={`${spec.id}:${p.key}`}>
+                      {String(params[p.key])}
+                    </output>
+                  </label>
+                ) : (
+                  <label class="ctrl__row">
+                    <span class="ctrl__label">
+                      {p.label}
+                      {p.hint && (
+                        <i class="ctrl__hint" title={p.hint}>
+                          ?
+                        </i>
+                      )}
+                    </span>
+                    <select
+                      class="ctrl__select"
+                      data-indicator={spec.id}
+                      data-param={p.key}
+                      aria-label={`${spec.short} ${p.label}`}
+                    >
+                      {p.choices?.map((c) => (
+                        <option value={c.value} selected={c.value === params[p.key]}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ),
+              )}
+            </fieldset>
+          ))}
+
+          <button class="ctrl__reset" type="button" data-lab-reset>
+            回到預設值
+          </button>
+        </div>
+      )
+    }
+  </indicator-lab>
+
+  {
+    showExplainer &&
+      specs.map(({ spec }) => (
+        <details class="explain">
+          <summary>
+            <b>{spec.name}</b>
+            <span>{spec.question}</span>
+          </summary>
+          <p>{spec.description}</p>
+        </details>
+      ))
+  }
+</ChartFrame>
+
+<script>
+  import '@/lib/chart/elements';
+</script>
+
+<style>
+  .canvas {
+    width: 100%;
+    border-radius: var(--radius-bear-sm);
+    overflow: hidden;
+    background: var(--c-surface);
+  }
+
+  .canvas:not([data-ready]) {
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--c-surface-2) 0 10px,
+      var(--c-surface) 10px 20px
+    );
+  }
+
+  .ctrl {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.85rem 0.5rem 0.25rem;
+  }
+
+  .ctrl__group {
+    flex: 1 1 15rem;
+    min-width: 0;
+    border: 2px solid var(--c-line-soft);
+    border-radius: var(--radius-bear-sm);
+    padding: 0.35rem 0.75rem 0.6rem;
+    margin: 0;
+  }
+
+  .ctrl__legend {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--c-ink-soft);
+    padding-inline: 0.35rem;
+  }
+
+  .ctrl__row {
+    display: grid;
+    grid-template-columns: minmax(4.5rem, auto) 1fr 2.6rem;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 0.8125rem;
+    padding-block: 0.15rem;
+  }
+
+  .ctrl__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--c-ink-soft);
+    white-space: nowrap;
+  }
+
+  .ctrl__hint {
+    display: inline-grid;
+    place-items: center;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 999px;
+    background: var(--c-brand-wash);
+    color: var(--c-brand-deep);
+    font-size: 0.6875rem;
+    font-style: normal;
+    font-weight: 700;
+    cursor: help;
+  }
+
+  .ctrl__value {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ctrl__select {
+    font: inherit;
+    font-size: 0.8125rem;
+    padding: 0.15rem 0.4rem;
+    border: 2px solid var(--c-line-soft);
+    border-radius: 8px;
+    background: var(--c-surface);
+    color: var(--c-ink);
+    grid-column: 2 / -1;
+  }
+
+  input[type='range'] {
+    width: 100%;
+    accent-color: var(--c-brand);
+    cursor: pointer;
+  }
+
+  .ctrl__reset {
+    flex: none;
+    align-self: center;
+    font: inherit;
+    font-size: 0.8125rem;
+    padding: 0.3rem 0.85rem;
+    border: 2px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-surface);
+    color: var(--c-ink);
+    cursor: pointer;
+  }
+
+  .ctrl__reset:hover {
+    background: var(--c-accent-wash);
+  }
+
+  .explain {
+    margin: 0 0.5rem 0.5rem;
+    border: 2px dashed var(--c-line-soft);
+    border-radius: var(--radius-bear-sm);
+    padding: 0.5rem 0.85rem;
+    font-size: 0.875rem;
+  }
+
+  .explain summary {
+    cursor: pointer;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  .explain summary span {
+    color: var(--c-ink-soft);
+    font-size: 0.8125rem;
+  }
+
+  .explain p {
+    margin: 0.6rem 0 0.2rem;
+    line-height: 1.85;
+    color: var(--c-ink-soft);
+  }
+</style>

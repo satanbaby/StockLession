@@ -1,0 +1,27 @@
+# build output
+dist/
+.astro/
+
+# dependencies
+node_modules/
+
+# 資料抓取的原始月報快取（可重新產生，不入庫）
+.cache/
+
+# scripts/preview-bears.mjs 產生的角色接觸表，隨時可重跑
+preview-bears.png
+
+# 字型原始檔 4.7MB，切片產物才是網站要用的。
+# 需要重新切片時從 GitHub releases 重新下載即可（見 scripts/build-font.mjs）
+assets/fonts/*.ttf
+
+# logs & env
+*.log
+.env
+.env.production
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

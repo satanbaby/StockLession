@@ -1,0 +1,85 @@
+---
+import '@/styles/global.css';
+import SiteHeader from '@/components/nav/SiteHeader.astro';
+import SiteFooter from '@/components/nav/SiteFooter.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  /** 課程頁要自己排版側欄，不要外層的置中容器 */
+  bare?: boolean;
+}
+
+const {
+  title,
+  description = '從零開始學台股技術分析：K 線、型態、指標，每個概念都配可操作的真實線圖。',
+  bare = false,
+} = Astro.props;
+
+const fullTitle = title === '三熊教室' ? title : `${title}｜三熊教室`;
+---
+
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    {/* jf open 粉圓，已子集化成全站實際用到的字（見 scripts/build-font.mjs）。
+        單檔 240KB，整站共用，第一次載入之後都命中快取，所以直接 preload。 */}
+    <link rel="preload" href="/fonts/huninn-subset.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="/fonts/huninn.css" />
+
+    {/* 在畫面繪製前套用主題，避免深色模式使用者看到一閃的白底 */}
+    <script is:inline>
+      (() => {
+        try {
+          const saved = localStorage.getItem('theme');
+          if (saved === 'dark' || saved === 'light') {
+            document.documentElement.dataset.theme = saved;
+          }
+        } catch {
+          /* 無痕模式讀不到 localStorage，就跟隨系統設定 */
+        }
+      })();
+    </script>
+  </head>
+
+  <body>
+    <a class="skip" href="#main">跳到主要內容</a>
+    <SiteHeader />
+    <main id="main" class={bare ? '' : 'shell'}>
+      <slot />
+    </main>
+    <SiteFooter />
+
+    <style>
+      .skip {
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        z-index: 100;
+        padding: 0.6rem 1rem;
+        background: var(--c-brand);
+        color: var(--c-on-brand);
+        border-radius: 0 0 var(--radius-bear-sm) 0;
+      }
+
+      .skip:focus {
+        left: 0;
+      }
+
+      .shell {
+        max-width: 60rem;
+        margin-inline: auto;
+        padding: 2rem 1.25rem 4rem;
+      }
+    </style>
+  </body>
+</html>

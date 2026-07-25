@@ -1,0 +1,206 @@
+---
+/**
+ * 課末：標記完成 ＋ 上下課導覽。
+ */
+import { lessonHref, type Neighbours } from '@/lib/course';
+import BearAvatar from '@/components/bears/BearAvatar.astro';
+
+interface Props {
+  lessonId: string;
+  nav: Neighbours;
+}
+
+const { lessonId, nav } = Astro.props;
+---
+
+<div class="foot">
+  <div class="foot__done">
+    <button type="button" class="donebtn" data-progress-toggle data-lesson={lessonId}>
+      <span class="donebtn__box" aria-hidden="true"></span>
+      <span data-progress-label>標記為已讀完</span>
+    </button>
+    <p class="foot__hint">進度存在這台裝置的瀏覽器裡，不會上傳，也不需要註冊。</p>
+  </div>
+
+  <nav class="foot__nav" aria-label="課程前後導覽">
+    {
+      nav.prev ? (
+        <a class="foot__link foot__link--prev" href={lessonHref(nav.prev.id)}>
+          <span class="foot__dir">← 上一課</span>
+          <b>{nav.prev.data.title}</b>
+        </a>
+      ) : (
+        <span />
+      )
+    }
+
+    {
+      nav.next ? (
+        <a class="foot__link foot__link--next" href={lessonHref(nav.next.id)}>
+          <span class="foot__dir">下一課 →</span>
+          <b>{nav.next.data.title}</b>
+        </a>
+      ) : (
+        <div class="foot__end">
+          <BearAvatar bear="jun" mood="proud" size={48} decorative />
+          <div>
+            <b>目前的課程到這裡為止</b>
+            <span>後續章節撰寫中，先去 <a href="/lab/">指標實驗室</a> 動手玩玩看。</span>
+          </div>
+        </div>
+      )
+    }
+  </nav>
+</div>
+
+<script>
+  import { isDone, toggle } from '@/lib/progress';
+
+  const btn = document.querySelector<HTMLButtonElement>('[data-progress-toggle]');
+  const label = document.querySelector<HTMLElement>('[data-progress-label]');
+  const id = btn?.dataset.lesson;
+
+  function paint(done: boolean) {
+    btn?.classList.toggle('is-done', done);
+    btn?.setAttribute('aria-pressed', String(done));
+    if (label) label.textContent = done ? '已讀完' : '標記為已讀完';
+  }
+
+  if (btn && id) {
+    paint(isDone(id));
+    btn.addEventListener('click', () => paint(toggle(id)));
+  }
+</script>
+
+<style>
+  .foot {
+    margin-top: 3rem;
+    padding-top: 1.75rem;
+    border-top: 2px solid var(--c-line-soft);
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .foot__done {
+    display: grid;
+    gap: 0.4rem;
+    justify-items: start;
+  }
+
+  .donebtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font: inherit;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    padding: 0.45rem 1.1rem;
+    border: 2px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-surface);
+    color: var(--c-ink);
+    box-shadow: var(--shadow-sticker-sm);
+    cursor: pointer;
+  }
+
+  .donebtn:hover {
+    background: var(--c-accent-wash);
+  }
+
+  .donebtn.is-done {
+    background: var(--c-down-wash);
+    border-color: var(--c-down);
+  }
+
+  .donebtn__box {
+    width: 1.15rem;
+    height: 1.15rem;
+    border: 2px solid var(--c-line);
+    border-radius: 6px;
+    position: relative;
+  }
+
+  .donebtn.is-done .donebtn__box {
+    background: var(--c-down);
+    border-color: var(--c-down);
+  }
+
+  .donebtn.is-done .donebtn__box::after {
+    content: '✓';
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-size: 0.75rem;
+  }
+
+  .foot__hint {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--c-ink-faint);
+  }
+
+  .foot__nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+
+  .foot__link {
+    display: grid;
+    gap: 0.2rem;
+    padding: 0.8rem 1rem;
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    background: var(--c-surface);
+    box-shadow: var(--shadow-sticker-sm);
+    text-decoration: none;
+    color: var(--c-ink);
+    line-height: 1.6;
+  }
+
+  .foot__link:hover {
+    background: var(--c-accent-wash);
+  }
+
+  .foot__link--next {
+    text-align: right;
+  }
+
+  .foot__dir {
+    font-size: 0.75rem;
+    color: var(--c-ink-soft);
+  }
+
+  .foot__end {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.8rem 1rem;
+    border: 2px dashed var(--c-line-soft);
+    border-radius: var(--radius-bear);
+    font-size: 0.875rem;
+    line-height: 1.7;
+  }
+
+  .foot__end div {
+    display: grid;
+  }
+
+  .foot__end span {
+    color: var(--c-ink-soft);
+    font-size: 0.8125rem;
+  }
+
+  @media (max-width: 640px) {
+    .foot__nav {
+      grid-template-columns: 1fr;
+    }
+
+    .foot__link--next {
+      text-align: left;
+    }
+  }
+</style>

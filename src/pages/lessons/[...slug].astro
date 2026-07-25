@@ -1,0 +1,35 @@
+---
+import { render, getCollection } from 'astro:content';
+import type { GetStaticPaths } from 'astro';
+import LessonLayout from '@/layouts/LessonLayout.astro';
+import { MDX_COMPONENTS } from '@/components/mdx';
+import { allLessons, neighbours, type Lesson } from '@/lib/course';
+
+export const getStaticPaths: GetStaticPaths = async () => {
+  // 草稿也產生頁面（有網址就能預覽），只是不出現在列表與導覽裡
+  const lessons = await getCollection('lessons');
+  return lessons.map((lesson) => ({
+    params: { slug: lesson.id },
+    props: { lesson },
+  }));
+};
+
+// getStaticPaths 的 props 不會被自動推導型別，要自己宣告
+interface Props {
+  lesson: Lesson;
+}
+
+const { lesson } = Astro.props;
+const { Content, headings } = await render(lesson);
+
+const nav = await neighbours(lesson.id);
+
+const published = await allLessons();
+const prerequisites = lesson.data.prerequisites
+  .map((id) => published.find((l) => l.id === id))
+  .filter((l): l is Lesson => Boolean(l));
+---
+
+<LessonLayout lesson={lesson} nav={nav} headings={headings} prerequisites={prerequisites}>
+  <Content components={MDX_COMPONENTS} />
+</LessonLayout>

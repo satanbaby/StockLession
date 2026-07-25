@@ -1,0 +1,129 @@
+---
+/**
+ * 公式區塊：數學式 ＋ 白話翻譯 ＋（可選）對照的程式碼。
+ *
+ * 教學網站常犯的錯是「丟一條公式就當作解釋過了」。
+ * 這個元件強迫每條公式都要配一句白話 —— plain 是必填 prop。
+ *
+ * 公式直接吃 KaTeX 語法字串（不含 $$），由 rehype-katex 在建置期渲染。
+ */
+import katex from 'katex';
+
+interface Props {
+  /** KaTeX 原始碼，不含 $$ */
+  formula: string;
+  /** 這條式子在幹嘛，用人話講一次 */
+  plain: string;
+  title?: string;
+  /** 各符號的意思 */
+  legend?: { symbol: string; means: string }[];
+  class?: string;
+}
+
+const { formula, plain, title, legend = [], class: className = '' } = Astro.props;
+
+// 建置期渲染，前端不需要載入 KaTeX 的 JS
+const html = katex.renderToString(formula, {
+  displayMode: true,
+  throwOnError: false,
+  output: 'html',
+  strict: false,
+});
+---
+
+<div class:list={['fm', className]}>
+  {title && <p class="fm__title">{title}</p>}
+
+  <div class="fm__math scroll-x" set:html={html} />
+
+  <p class="fm__plain">
+    <span class="fm__tag">白話講</span>
+    {plain}
+  </p>
+
+  {
+    legend.length > 0 && (
+      <dl class="fm__legend">
+        {legend.map((l) => (
+          <div class="fm__pair">
+            <dt>{l.symbol}</dt>
+            <dd>{l.means}</dd>
+          </div>
+        ))}
+      </dl>
+    )
+  }
+
+  <slot />
+</div>
+
+<style>
+  .fm {
+    margin: 1.6rem 0;
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    background: var(--c-surface);
+    box-shadow: var(--shadow-sticker-sm);
+    padding: 1rem 1.15rem 1.1rem;
+  }
+
+  .fm__title {
+    margin: 0 0 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--c-ink-soft);
+    letter-spacing: 0.04em;
+  }
+
+  .fm__math {
+    padding: 0.35rem 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .fm__plain {
+    margin: 0.7rem 0 0;
+    padding-top: 0.75rem;
+    border-top: 2px dashed var(--c-line-soft);
+    font-size: 0.9375rem;
+    line-height: 1.85;
+  }
+
+  .fm__tag {
+    display: inline-block;
+    margin-right: 0.5rem;
+    padding: 0.05rem 0.5rem;
+    border-radius: 999px;
+    background: var(--c-brand-wash);
+    color: var(--c-brand-deep);
+    font-size: 0.75rem;
+    font-weight: 700;
+    vertical-align: 0.1em;
+  }
+
+  .fm__legend {
+    margin: 0.85rem 0 0;
+    display: grid;
+    gap: 0.3rem;
+  }
+
+  .fm__pair {
+    display: grid;
+    grid-template-columns: minmax(3.5rem, auto) 1fr;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.7;
+  }
+
+  .fm__pair dt {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--c-brown);
+    text-align: right;
+  }
+
+  .fm__pair dd {
+    margin: 0;
+    color: var(--c-ink-soft);
+  }
+</style>

@@ -1,0 +1,134 @@
+---
+/**
+ * 唯讀的 K 線圖，可疊指標、掛標記與水平參考線。
+ *
+ *   <PriceChart symbol="2330" from="2024-01-01" to="2024-06-30"
+ *               overlays={[{ id: 'ma', params: { period: 20 } }]}
+ *               panes={[{ id: 'kd' }]}
+ *               caption="…" />
+ *
+ * 資料在建置期就切好內嵌進 HTML，所以圖表不需要等任何網路請求。
+ * 課文用的區間通常只有幾十到幾百根，內嵌成本很低。
+ */
+import ChartFrame from './ChartFrame.astro';
+import { slice, label, dataset, type SymbolId } from '@/lib/data';
+import type { Bar } from '@/lib/indicators/types';
+import type { ParamValues } from '@/lib/indicators';
+
+interface LayerConfig {
+  id: string;
+  params?: ParamValues;
+}
+
+interface Props {
+  /** 用內建行情，二選一 */
+  symbol?: SymbolId;
+  /** 直接餵資料（合成的示意圖用），二選一 */
+  bars?: Bar[];
+  from?: string;
+  to?: string;
+  last?: number;
+  /**
+   * 往前多抓幾根當暖機。
+   * 想看 MA60 從畫面第一根就有值，這裡至少要給 60。
+   */
+  warmup?: number;
+  overlays?: LayerConfig[];
+  panes?: LayerConfig[];
+  showVolume?: boolean;
+  height?: number;
+  paneHeight?: number;
+  minimal?: boolean;
+  title?: string;
+  caption?: string;
+  /** 合成資料一定要標 */
+  synthetic?: boolean;
+  markers?: {
+    time: string;
+    position: 'aboveBar' | 'belowBar' | 'inBar';
+    shape: 'circle' | 'square' | 'arrowUp' | 'arrowDown';
+    color?: string;
+    text?: string;
+  }[];
+  priceLines?: { price: number; label: string; color?: string; dashed?: boolean }[];
+  class?: string;
+}
+
+const {
+  symbol,
+  bars: rawBars,
+  from,
+  to,
+  last,
+  warmup = 0,
+  overlays = [],
+  panes = [],
+  showVolume = true,
+  height = 360,
+  paneHeight = 130,
+  minimal = false,
+  title,
+  caption,
+  synthetic = false,
+  markers,
+  priceLines,
+  class: className = '',
+} = Astro.props;
+
+if (!symbol && !rawBars) throw new Error('PriceChart 需要 symbol 或 bars 其中之一');
+
+const picked = symbol ? slice(symbol, { from, to, last, warmup }) : { bars: rawBars!, visibleRange: undefined };
+
+const source = symbol
+  ? `${label(symbol)} 日線 · ${dataset(symbol).source}`
+  : synthetic
+    ? '教學用合成資料'
+    : undefined;
+
+const config = {
+  bars: picked.bars,
+  overlays,
+  panes,
+  showVolume,
+  height,
+  paneHeight,
+  minimal,
+  visibleRange: picked.visibleRange,
+  markers,
+  priceLines,
+};
+
+const legend = [...overlays, ...panes].map((l) => l.id);
+// 副圖各佔一格，加上成交量那格，外框要留出對應高度
+const hasVolume = showVolume && picked.bars.some((b) => b.volume > 0);
+const totalHeight = height + panes.length * paneHeight + (hasVolume ? Math.round(paneHeight * 0.7) : 0);
+---
+
+<ChartFrame title={title} caption={caption} legend={legend} source={source} synthetic={synthetic} class={className}>
+  <price-chart>
+    <div data-chart-canvas style={`height:${totalHeight}px`} class="canvas"></div>
+    <script type="application/json" set:html={JSON.stringify(config)} is:inline></script>
+  </price-chart>
+</ChartFrame>
+
+<script>
+  import '@/lib/chart/elements';
+</script>
+
+<style>
+  .canvas {
+    width: 100%;
+    border-radius: var(--radius-bear-sm);
+    overflow: hidden;
+    background: var(--c-surface);
+  }
+
+  /* 圖還沒畫出來時給個佔位底色，避免版面在捲動時跳動 */
+  .canvas:not([data-ready]) {
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--c-surface-2) 0 10px,
+      var(--c-surface) 10px 20px
+    );
+  }
+</style>

@@ -1,0 +1,10 @@
+/* 由 scripts/build-font.mjs 產生，請勿手改。
+   jf open 粉圓（justfont）· SIL OFL 1.1 · https://github.com/justfont/open-huninn-font */
+@font-face {
+  font-family: "Huninn";
+  src: local("jf open 粉圓"), local("jf-openhuninn"),
+       url("/fonts/huninn-subset.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}

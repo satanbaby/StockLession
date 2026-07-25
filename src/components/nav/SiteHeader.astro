@@ -1,0 +1,179 @@
+---
+import BearAvatar from '@/components/bears/BearAvatar.astro';
+
+const path = Astro.url.pathname;
+const links = [
+  { href: '/lessons/', label: '課程' },
+  { href: '/lab/', label: '指標實驗室' },
+  { href: '/glossary/', label: '名詞索引' },
+];
+const isActive = (href: string) => path === href || path.startsWith(href);
+---
+
+<header class="hdr">
+  <div class="hdr__in">
+    <a class="brand" href="/">
+      <BearAvatar bear="duo" mood="happy" size={40} decorative class="brand__bear" />
+      <span class="brand__text">三熊教室</span>
+    </a>
+
+    <nav class="nav" aria-label="主要導覽">
+      {
+        links.map((l) => (
+          <a href={l.href} class:list={['nav__a', isActive(l.href) && 'is-active']}>
+            {l.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <button class="theme" type="button" data-theme-toggle aria-label="切換深淺色主題">
+      <span class="theme__ico theme__ico--sun" aria-hidden="true">☀</span>
+      <span class="theme__ico theme__ico--moon" aria-hidden="true">☾</span>
+    </button>
+  </div>
+</header>
+
+<script>
+  const btn = document.querySelector<HTMLButtonElement>('[data-theme-toggle]');
+  btn?.addEventListener('click', () => {
+    const root = document.documentElement;
+    // 沒設過 data-theme 時，目前顏色是跟隨系統的，所以要先問系統再取反
+    const current =
+      root.dataset.theme ??
+      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    const next = current === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = next;
+    try {
+      localStorage.setItem('theme', next);
+    } catch {
+      /* 無痕模式寫不進去，切換仍然在本次瀏覽有效 */
+    }
+  });
+</script>
+
+<style>
+  .hdr {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: color-mix(in srgb, var(--c-bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 2px solid var(--c-line);
+  }
+
+  .hdr__in {
+    max-width: 72rem;
+    margin-inline: auto;
+    padding: 0.5rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--c-ink);
+    text-decoration: none;
+    flex: none;
+  }
+
+  .brand__bear {
+    border: 2px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-accent-wash);
+  }
+
+  .nav {
+    display: flex;
+    gap: 0.25rem;
+    margin-left: auto;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav__a {
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    color: var(--c-ink-soft);
+    text-decoration: none;
+    font-size: 0.9375rem;
+    white-space: nowrap;
+  }
+
+  .nav__a:hover {
+    color: var(--c-ink);
+    background: var(--c-surface-2);
+  }
+
+  .nav__a.is-active {
+    color: var(--c-ink);
+    background: var(--c-accent-wash);
+    border-color: var(--c-line);
+  }
+
+  .theme {
+    flex: none;
+    width: 2.25rem;
+    height: 2.25rem;
+    display: grid;
+    place-items: center;
+    border: 2px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-surface);
+    color: var(--c-ink);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+  }
+
+  .theme:hover {
+    background: var(--c-accent-wash);
+  }
+
+  /* 淺色顯示月亮（可切到暗），深色顯示太陽（可切回亮） */
+  .theme__ico--sun {
+    display: none;
+  }
+
+  :global([data-theme='dark']) .theme__ico--sun {
+    display: block;
+  }
+
+  :global([data-theme='dark']) .theme__ico--moon {
+    display: none;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme='light'])) .theme__ico--sun {
+      display: block;
+    }
+
+    :global(:root:not([data-theme='light'])) .theme__ico--moon {
+      display: none;
+    }
+
+    :global([data-theme='light']) .theme__ico--sun {
+      display: none;
+    }
+
+    :global([data-theme='light']) .theme__ico--moon {
+      display: block;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .brand__text {
+      display: none;
+    }
+  }
+</style>

@@ -1,0 +1,252 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import BearAvatar from '@/components/bears/BearAvatar.astro';
+import { termsByGroup, allTerms } from '@/lib/glossary';
+import { lessonHref } from '@/lib/course';
+
+const groups = termsByGroup();
+const total = allTerms().length;
+---
+
+<BaseLayout title="名詞索引" description="技術分析常見名詞的白話解釋，附上常見誤解與對應課程。">
+  <header class="head">
+    <BearAvatar bear="jun" mood="neutral" size={68} decorative class="head__bear" />
+    <div>
+      <h1>名詞索引</h1>
+      <p>
+        {total} 個詞條。每一條除了定義，也盡量寫上<b>常見的誤解</b>——
+        名詞本身通常不難，難的是它在實務上跟你以為的不一樣。
+      </p>
+    </div>
+  </header>
+
+  <div class="search">
+    <label class="sr-only" for="q">搜尋名詞</label>
+    <input id="q" type="search" placeholder="輸入關鍵字，例如 鈍化、頸線、KD" data-glossary-search />
+    <p class="search__empty" data-empty hidden>找不到符合的名詞。</p>
+  </div>
+
+  <nav class="jump" aria-label="分類快速跳轉">
+    {groups.map((g) => <a href={`#${encodeURIComponent(g.group)}`}>{g.group}</a>)}
+  </nav>
+
+  {
+    groups.map((g) => (
+      <section class="grp" id={g.group} data-group>
+        <h2>{g.group}</h2>
+        <dl class="terms">
+          {g.terms.map((t) => (
+            <div
+              class="term"
+              data-term
+              data-haystack={`${t.term} ${t.alias ?? ''} ${t.brief} ${t.note ?? ''}`.toLowerCase()}
+            >
+              <dt>
+                <b>{t.term}</b>
+                {t.alias && <span class="term__alias">{t.alias}</span>}
+              </dt>
+              <dd>
+                <p class="term__brief">{t.brief}</p>
+                {t.note && <p class="term__note">{t.note}</p>}
+                {t.lesson && (
+                  <p class="term__link">
+                    <a href={lessonHref(t.lesson)}>相關課程 →</a>
+                  </p>
+                )}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+    ))
+  }
+</BaseLayout>
+
+<script>
+  const input = document.querySelector<HTMLInputElement>('[data-glossary-search]');
+  const empty = document.querySelector<HTMLElement>('[data-empty]');
+  const terms = [...document.querySelectorAll<HTMLElement>('[data-term]')];
+  const groups = [...document.querySelectorAll<HTMLElement>('[data-group]')];
+
+  input?.addEventListener('input', () => {
+    const q = input.value.trim().toLowerCase();
+    let hits = 0;
+
+    for (const el of terms) {
+      const match = q === '' || (el.dataset.haystack ?? '').includes(q);
+      el.hidden = !match;
+      if (match) hits += 1;
+    }
+
+    // 整組都被過濾掉時連標題一起收起來，不然會留下一排空的分類
+    for (const g of groups) {
+      g.hidden = ![...g.querySelectorAll<HTMLElement>('[data-term]')].some((t) => !t.hidden);
+    }
+
+    if (empty) empty.hidden = hits > 0;
+  });
+</script>
+
+<style>
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .head__bear {
+    flex: none;
+    border: 2px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-brand-wash);
+  }
+
+  .head h1 {
+    font-size: 1.85rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .head p {
+    color: var(--c-ink-soft);
+    line-height: 1.85;
+    font-size: 0.9375rem;
+    max-width: 40rem;
+  }
+
+  .head b {
+    color: var(--c-ink);
+  }
+
+  .search input {
+    width: 100%;
+    font: inherit;
+    font-size: 1rem;
+    padding: 0.6rem 1.1rem;
+    border: 2px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-surface);
+    color: var(--c-ink);
+    box-shadow: var(--shadow-sticker-sm);
+  }
+
+  .search__empty {
+    margin-top: 0.85rem;
+    padding: 0.85rem 1.1rem;
+    border: 2px dashed var(--c-line-soft);
+    border-radius: var(--radius-bear-sm);
+    color: var(--c-ink-faint);
+    font-size: 0.9375rem;
+  }
+
+  .jump {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin: 1rem 0 2rem;
+  }
+
+  .jump a {
+    padding: 0.2rem 0.75rem;
+    border: 2px solid var(--c-line-soft);
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    color: var(--c-ink-soft);
+    text-decoration: none;
+  }
+
+  .jump a:hover {
+    border-color: var(--c-line);
+    background: var(--c-accent-wash);
+    color: var(--c-ink);
+  }
+
+  .grp {
+    margin-bottom: 2.5rem;
+    scroll-margin-top: 5.5rem;
+  }
+
+  .grp h2 {
+    font-size: 1.25rem;
+    margin-bottom: 0.85rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 3px solid var(--c-accent);
+  }
+
+  .terms {
+    margin: 0;
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  .term {
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    background: var(--c-surface);
+    box-shadow: var(--shadow-sticker-sm);
+    padding: 0.85rem 1.1rem 0.95rem;
+  }
+
+  .term dt {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.35rem;
+  }
+
+  .term dt b {
+    font-size: 1.05rem;
+  }
+
+  .term__alias {
+    font-size: 0.75rem;
+    padding: 0.05rem 0.5rem;
+    border-radius: 999px;
+    background: var(--c-surface-2);
+    border: 1px solid var(--c-line-soft);
+    color: var(--c-ink-soft);
+    font-family: var(--font-mono);
+  }
+
+  .term dd {
+    margin: 0;
+  }
+
+  .term__brief {
+    font-size: 0.9375rem;
+    line-height: 1.8;
+  }
+
+  .term__note {
+    margin-top: 0.4rem;
+    padding-top: 0.4rem;
+    border-top: 1px dashed var(--c-line-soft);
+    font-size: 0.875rem;
+    line-height: 1.8;
+    color: var(--c-ink-soft);
+  }
+
+  .term__link {
+    margin-top: 0.5rem;
+    font-size: 0.8125rem;
+  }
+
+  .term__link a {
+    color: var(--c-brand-deep);
+    text-decoration: none;
+    font-weight: 700;
+  }
+
+  .term__link a:hover {
+    text-decoration: underline;
+  }
+</style>

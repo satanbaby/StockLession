@@ -1,0 +1,266 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import CourseSidebar from '@/components/nav/CourseSidebar.astro';
+import LessonFooterNav from '@/components/nav/LessonFooterNav.astro';
+import BearAvatar from '@/components/bears/BearAvatar.astro';
+import { STAGE_BY_ID, difficultyStars, lessonHref, type Lesson, type Neighbours } from '@/lib/course';
+import type { MarkdownHeading } from 'astro';
+
+interface Props {
+  lesson: Lesson;
+  nav: Neighbours;
+  headings: MarkdownHeading[];
+  prerequisites: Lesson[];
+}
+
+const { lesson, nav, headings, prerequisites } = Astro.props;
+const { data } = lesson;
+const stage = STAGE_BY_ID[data.stage];
+
+// 只收 h2，h3 以下放進目錄會太細碎
+const toc = headings.filter((h) => h.depth === 2);
+---
+
+<BaseLayout title={data.title} description={data.summary} bare>
+  <div class="wrap">
+    <aside class="wrap__side">
+      <CourseSidebar currentId={lesson.id} />
+    </aside>
+
+    <article class="wrap__main">
+      <header class="lead">
+        <p class="lead__crumb">
+          <a href="/lessons/">課程</a>
+          <span aria-hidden="true">›</span>
+          <span style={`--accent:${stage.accent}`} class="lead__stage">
+            {stage.ordinal} {stage.title}
+          </span>
+        </p>
+
+        <div class="lead__row">
+          <BearAvatar bear={stage.bear} mood="happy" size={64} decorative class="lead__bear" />
+          <div>
+            <h1>{data.title}</h1>
+            <p class="lead__sum">{data.summary}</p>
+          </div>
+        </div>
+
+        <ul class="lead__meta" role="list">
+          <li class="chip-bear">第 {nav.index} / {nav.total} 課</li>
+          <li class="chip-bear">約 {data.minutes} 分鐘</li>
+          <li class="chip-bear" title={`難度 ${data.difficulty} / 5`}>
+            難度 <span class="lead__stars">{difficultyStars(data.difficulty)}</span>
+          </li>
+        </ul>
+
+        <section class="obj">
+          <h2 class="obj__title">讀完這一課，你會</h2>
+          <ul>
+            {data.objectives.map((o) => <li>{o}</li>)}
+          </ul>
+        </section>
+
+        {
+          prerequisites.length > 0 && (
+            <p class="pre">
+              建議先讀：
+              {prerequisites.map((p, i) => (
+                <>
+                  {i > 0 && '、'}
+                  <a href={lessonHref(p.id)}>{p.data.title}</a>
+                </>
+              ))}
+            </p>
+          )
+        }
+
+        {
+          toc.length > 2 && (
+            <nav class="toc" aria-label="本頁目錄">
+              <p class="toc__title">本頁大綱</p>
+              <ol>
+                {toc.map((h) => (
+                  <li>
+                    <a href={`#${h.slug}`}>{h.text}</a>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+          )
+        }
+      </header>
+
+      <div class="prose">
+        <slot />
+      </div>
+
+      <LessonFooterNav lessonId={lesson.id} nav={nav} />
+    </article>
+  </div>
+</BaseLayout>
+
+<style>
+  .wrap {
+    max-width: 76rem;
+    margin-inline: auto;
+    padding: 1.75rem 1.25rem 4rem;
+    display: grid;
+    grid-template-columns: 15rem minmax(0, 1fr);
+    gap: 2.5rem;
+    align-items: start;
+  }
+
+  .wrap__side {
+    position: sticky;
+    top: 4.5rem;
+    max-height: calc(100vh - 6rem);
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+
+  .wrap__main {
+    min-width: 0;
+  }
+
+  .lead {
+    margin-bottom: 2.5rem;
+  }
+
+  .lead__crumb {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.8125rem;
+    color: var(--c-ink-soft);
+    margin-bottom: 0.85rem;
+  }
+
+  .lead__crumb a {
+    color: inherit;
+  }
+
+  .lead__stage {
+    padding: 0.05rem 0.6rem;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #3d3230;
+    font-weight: 700;
+  }
+
+  .lead__row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+  }
+
+  .lead__bear {
+    flex: none;
+    border: 2px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-surface-2);
+  }
+
+  .lead h1 {
+    font-size: clamp(1.5rem, 4vw, 2.1rem);
+    line-height: 1.35;
+  }
+
+  .lead__sum {
+    margin-top: 0.35rem;
+    color: var(--c-ink-soft);
+    font-size: 0.9375rem;
+    line-height: 1.8;
+  }
+
+  .lead__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 1rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .lead__stars {
+    letter-spacing: 0.1em;
+    color: var(--c-brown);
+    font-size: 0.7rem;
+  }
+
+  .obj {
+    margin-top: 1.35rem;
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    background: var(--c-brand-wash);
+    padding: 0.9rem 1.2rem 1rem;
+  }
+
+  .obj__title {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--c-brand-deep);
+    letter-spacing: 0.04em;
+    margin-bottom: 0.4rem;
+  }
+
+  .obj ul {
+    margin: 0;
+    padding-left: 1.1rem;
+    display: grid;
+    gap: 0.25rem;
+    font-size: 0.9375rem;
+    line-height: 1.8;
+  }
+
+  .pre {
+    margin-top: 0.85rem;
+    font-size: 0.875rem;
+    color: var(--c-ink-soft);
+  }
+
+  .toc {
+    margin-top: 1.35rem;
+    border: 2px dashed var(--c-line-soft);
+    border-radius: var(--radius-bear-sm);
+    padding: 0.75rem 1.1rem 0.9rem;
+  }
+
+  .toc__title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--c-ink-soft);
+    letter-spacing: 0.04em;
+    margin-bottom: 0.35rem;
+  }
+
+  .toc ol {
+    margin: 0;
+    padding-left: 1.2rem;
+    display: grid;
+    gap: 0.15rem;
+    font-size: 0.875rem;
+  }
+
+  .toc a {
+    color: var(--c-ink-soft);
+    text-decoration: none;
+  }
+
+  .toc a:hover {
+    color: var(--c-brand-deep);
+    text-decoration: underline;
+  }
+
+  @media (max-width: 960px) {
+    .wrap {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1.5rem;
+    }
+
+    .wrap__side {
+      position: static;
+      max-height: none;
+      overflow: visible;
+    }
+  }
+</style>

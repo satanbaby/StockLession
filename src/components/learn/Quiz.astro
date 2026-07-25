@@ -1,0 +1,235 @@
+---
+/**
+ * 課末小測驗。
+ *
+ *   <Quiz
+ *     question="MA20 在第 20 根之前為什麼不該畫出來？"
+ *     options={[
+ *       { text: '因為資料不足，畫出來的是虛構的值', correct: true, why: '…' },
+ *       { text: '因為要留空間給圖例', why: '…' },
+ *     ]}
+ *   />
+ *
+ * 每個選項都要寫 why —— 選錯的人最需要知道的是「錯在哪」，
+ * 只回一個紅叉是在浪費那次犯錯的價值。
+ */
+import BearAvatar from '@/components/bears/BearAvatar.astro';
+
+interface Option {
+  text: string;
+  correct?: boolean;
+  /** 為什麼對／為什麼錯。必填。 */
+  why: string;
+}
+
+interface Props {
+  question: string;
+  options: Option[];
+  class?: string;
+}
+
+const { question, options, class: className = '' } = Astro.props;
+
+if (!options.some((o) => o.correct)) {
+  throw new Error(`Quiz「${question}」沒有任何正解選項`);
+}
+
+const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+---
+
+<quiz-card class:list={['quiz', className]}>
+  <p class="quiz__q">
+    <span class="quiz__badge">小測驗</span>
+    {question}
+  </p>
+
+  <ul class="quiz__list" role="list">
+    {
+      options.map((o, i) => (
+        <li>
+          <button
+            type="button"
+            class="opt"
+            data-correct={o.correct ? 'true' : 'false'}
+            aria-pressed="false"
+          >
+            <span class="opt__key" aria-hidden="true">
+              {letters[i]}
+            </span>
+            <span class="opt__text">{o.text}</span>
+            <span class="opt__mark" aria-hidden="true" />
+          </button>
+          <p class="opt__why" hidden>
+            {o.why}
+          </p>
+        </li>
+      ))
+    }
+  </ul>
+
+  <div class="quiz__react" hidden data-react>
+    <div class="quiz__bear" data-bear-right hidden>
+      <BearAvatar bear="duo" mood="proud" size={54} decorative />
+      <b>答對了！</b>
+    </div>
+    <div class="quiz__bear" data-bear-wrong hidden>
+      <BearAvatar bear="kong" mood="worried" size={54} decorative />
+      <b>再看一次上面那段吧</b>
+    </div>
+  </div>
+</quiz-card>
+
+<script>
+  class QuizCard extends HTMLElement {
+    connectedCallback() {
+      const buttons = [...this.querySelectorAll<HTMLButtonElement>('.opt')];
+      const react = this.querySelector<HTMLElement>('[data-react]');
+      const right = this.querySelector<HTMLElement>('[data-bear-right]');
+      const wrong = this.querySelector<HTMLElement>('[data-bear-wrong]');
+
+      for (const btn of buttons) {
+        btn.addEventListener('click', () => {
+          const picked = btn.dataset.correct === 'true';
+
+          // 作答後把所有選項的解析都攤開 —— 知道別的選項為什麼錯，
+          // 跟知道自己選的為什麼對一樣重要
+          for (const other of buttons) {
+            other.setAttribute('aria-pressed', String(other === btn));
+            other.classList.toggle('is-picked', other === btn);
+            other.classList.add(other.dataset.correct === 'true' ? 'is-right' : 'is-wrong');
+            const why = other.parentElement?.querySelector<HTMLElement>('.opt__why');
+            if (why) why.hidden = false;
+          }
+
+          if (react) react.hidden = false;
+          if (right) right.hidden = !picked;
+          if (wrong) wrong.hidden = picked;
+        });
+      }
+    }
+  }
+
+  if (!customElements.get('quiz-card')) customElements.define('quiz-card', QuizCard);
+</script>
+
+<style>
+  .quiz {
+    display: block;
+    margin: 2rem 0;
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    background: var(--c-surface);
+    box-shadow: var(--shadow-sticker);
+    padding: 1.1rem 1.25rem 1.25rem;
+  }
+
+  .quiz__q {
+    margin: 0 0 0.9rem;
+    font-size: 1.0625rem;
+    font-weight: 700;
+    line-height: 1.75;
+  }
+
+  .quiz__badge {
+    display: inline-block;
+    margin-right: 0.5rem;
+    padding: 0.1rem 0.6rem;
+    border: 2px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-accent);
+    color: #3d3230;
+    font-size: 0.75rem;
+    vertical-align: 0.12em;
+  }
+
+  .quiz__list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .opt {
+    display: grid;
+    grid-template-columns: 1.6rem 1fr 1.3rem;
+    align-items: start;
+    gap: 0.6rem;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    padding: 0.6rem 0.8rem;
+    border: 2px solid var(--c-line-soft);
+    border-radius: var(--radius-bear-sm);
+    background: var(--c-surface);
+    color: var(--c-ink);
+    cursor: pointer;
+  }
+
+  .opt:hover:not(.is-right):not(.is-wrong) {
+    border-color: var(--c-line);
+    background: var(--c-surface-2);
+  }
+
+  .opt__key {
+    display: grid;
+    place-items: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 999px;
+    background: var(--c-surface-2);
+    font-size: 0.8125rem;
+    font-weight: 700;
+  }
+
+  .opt.is-right {
+    border-color: var(--c-down);
+    background: var(--c-down-wash);
+    cursor: default;
+  }
+
+  .opt.is-wrong {
+    cursor: default;
+    opacity: 0.68;
+  }
+
+  .opt.is-wrong.is-picked {
+    border-color: var(--c-up);
+    background: var(--c-up-wash);
+    opacity: 1;
+  }
+
+  .opt.is-right .opt__mark::after {
+    content: '✓';
+    color: var(--c-down);
+    font-weight: 700;
+  }
+
+  .opt.is-wrong.is-picked .opt__mark::after {
+    content: '✕';
+    color: var(--c-up);
+    font-weight: 700;
+  }
+
+  .opt__why {
+    margin: 0.35rem 0 0.2rem 2.4rem;
+    font-size: 0.875rem;
+    line-height: 1.8;
+    color: var(--c-ink-soft);
+  }
+
+  .quiz__react {
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 2px dashed var(--c-line-soft);
+  }
+
+  .quiz__bear {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.9375rem;
+  }
+</style>
