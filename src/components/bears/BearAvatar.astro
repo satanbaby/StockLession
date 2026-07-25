@@ -1,21 +1,16 @@
 ---
-/**
- * 一隻熊。純 inline SVG —— 零 JS、零額外請求、無限縮放不糊。
- *
- *   <BearAvatar bear="duo" mood="excited" size={96} />
- */
+/** Renders the selected bear with a real mood-specific transparent WebP. */
 import { BEARS } from './parts/bodies';
-import { FACES } from './parts/faces';
-import { VIEWBOX, type BearId, type BearMood } from './parts/geometry';
+import type { BearId, BearMood } from './parts/geometry';
 
 interface Props {
   bear: BearId;
   mood?: BearMood;
-  /** 邊長（px）。SVG 是正方形的 */
+  /** Rendered width and height in CSS pixels. */
   size?: number;
-  /** 水平鏡射，讓兩隻熊面對面 */
+  /** Mirror the character horizontally. */
   flip?: boolean;
-  /** 純裝飾時設 true，螢幕閱讀器會略過 */
+  /** Hide the image from assistive technology when it is purely decorative. */
   decorative?: boolean;
   class?: string;
 }
@@ -30,29 +25,25 @@ const {
 } = Astro.props;
 
 const skin = BEARS[bear];
-
-// clipPath 的 id 必須全頁唯一，否則同一頁出現兩隻阿多時
-// 後面那隻會去套用前面那隻的裁切區域。
-const uid = Math.random().toString(36).slice(2, 9);
-
-const style = Object.entries(skin.vars)
-  .map(([k, v]) => `${k}:${v}`)
-  .join(';');
-
-const inner =
-  skin.behind(uid) + skin.head(uid) + skin.eyeBase(uid) + FACES[mood] + skin.overlay(uid);
 ---
 
-<svg
-  class={className}
+<img
+  class:list={['bear-avatar', `bear-avatar--${mood}`, className]}
+  src={skin.images[mood]}
   width={size}
   height={size}
-  viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`}
-  style={style}
-  role={decorative ? 'presentation' : 'img'}
+  style={`--avatar-flip:${flip ? -1 : 1}`}
+  alt={decorative ? '' : `${skin.name}（${skin.role}）`}
   aria-hidden={decorative ? 'true' : undefined}
-  aria-label={decorative ? undefined : `${skin.name}（${skin.role}）`}
-  xmlns="http://www.w3.org/2000/svg"
->
-  <g transform={flip ? `translate(${VIEWBOX},0) scale(-1,1)` : undefined} set:html={inner} />
-</svg>
+  decoding="async"
+/>
+
+<style>
+  .bear-avatar {
+    display: block;
+    object-fit: contain;
+    object-position: center;
+    transform: scaleX(var(--avatar-flip, 1));
+    transform-origin: center;
+  }
+</style>

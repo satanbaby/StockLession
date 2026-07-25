@@ -19,9 +19,9 @@ interface Props {
 
 const {
   cast = [
-    { bear: 'kong', mood: 'worried' },
     { bear: 'duo', mood: 'excited' },
     { bear: 'jun', mood: 'neutral' },
+    { bear: 'kong', mood: 'neutral' },
   ],
   size = 140,
   labels = true,
@@ -77,7 +77,7 @@ const {
     margin-bottom: -0.5rem;
   }
 
-  .scene__slot :global(svg) {
+  .scene__slot :global(.bear-avatar) {
     max-width: 100%;
     height: auto;
     filter: drop-shadow(3px 4px 0 var(--c-shadow));

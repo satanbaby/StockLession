@@ -40,7 +40,7 @@ src/
   lib/indicators/ 指標函式庫 ＋ 登錄表 ＋ 測試
   lib/chart/      lightweight-charts 封裝，全站只有這裡碰圖表 API
   lib/course.ts   課程結構，首頁／側欄／導覽都讀它
-  components/bears/  三熊 SVG
+  components/bears/  《熊熊遇見你》透明 WebP 角色元件
   components/charts/ 圖表元件
   components/learn/  Callout / FormulaBlock / Quiz / KeyTakeaways
 ```

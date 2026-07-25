@@ -70,24 +70,27 @@
   --chart-4: #2e9e9e;
   --chart-5: #c4608e;
 
-  /* 三熊的毛色。--*-line 是輪廓線，用同色系深一階而不是黑色：
-     純黑會把扁平柔和的味道打死，但近白色的熊沒有輪廓又會消失在米白底上。 */
-  --bear-duo-fur: #c9915c;
-  --bear-duo-fur-dark: #a97441;
-  --bear-duo-line: #9c6a3a;
-  --bear-duo-belly: #efd4ae;
+  /* 三熊的毛色：依原作者附圖使用焦糖棕、奶油白與炭灰熊貓。 */
+  --bear-duo-fur-light: #dbb58e;
+  --bear-duo-fur: #c99b70;
+  --bear-duo-fur-dark: #b68457;
+  --bear-duo-line: #2f2d2b;
+  --bear-duo-belly: #dfb88e;
   --bear-duo-cloth: #e2574c;
 
-  --bear-kong-fur: #fbf6ef;
-  --bear-kong-fur-dark: #e2d8cb;
-  --bear-kong-line: #cdbfae;
-  --bear-kong-patch: #46393a;
+  --bear-kong-fur-light: #fffefa;
+  --bear-kong-fur: #faf9f4;
+  --bear-kong-fur-dark: #e9e7e0;
+  --bear-kong-line: #292929;
+  --bear-kong-patch-light: #686867;
+  --bear-kong-patch: #4e4e4d;
   --bear-kong-cloth: #9ec7e8;
 
-  --bear-jun-fur: #e9f0f7;
-  --bear-jun-fur-dark: #c6d4e2;
-  --bear-jun-line: #a9bccd;
-  --bear-jun-belly: #f9fcff;
+  --bear-jun-fur-light: #fffefa;
+  --bear-jun-fur: #faf9f5;
+  --bear-jun-fur-dark: #eceae4;
+  --bear-jun-line: #2f2f2f;
+  --bear-jun-belly: #fffdf8;
   --bear-jun-cloth: #6f8ba3;
 }
 
@@ -130,11 +133,13 @@
     --chart-4: #4cc4c4;
     --chart-5: #e58cb6;
 
-    /* 深色模式下白熊反而要壓暗一點，不然會在暗棕底上刺眼 */
-    --bear-kong-fur: #ece3d6;
-    --bear-kong-line: #b9aa99;
-    --bear-jun-fur: #dbe6f0;
-    --bear-jun-line: #9aaec1;
+    /* 深色模式稍微壓低白毛亮度，保留附圖的奶油感。 */
+    --bear-kong-fur: #eeeae1;
+    --bear-kong-fur-light: #f7f4ed;
+    --bear-kong-line: #292929;
+    --bear-jun-fur: #f1eee6;
+    --bear-jun-fur-light: #faf7f0;
+    --bear-jun-line: #2f2f2f;
   }
 }
 
@@ -176,10 +181,12 @@
   --chart-4: #4cc4c4;
   --chart-5: #e58cb6;
 
-  --bear-kong-fur: #ece3d6;
-  --bear-kong-line: #b9aa99;
-  --bear-jun-fur: #dbe6f0;
-  --bear-jun-line: #9aaec1;
+  --bear-kong-fur: #eeeae1;
+  --bear-kong-fur-light: #f7f4ed;
+  --bear-kong-line: #292929;
+  --bear-jun-fur: #f1eee6;
+  --bear-jun-fur-light: #faf7f0;
+  --bear-jun-line: #2f2f2f;
 }
 
 /* ---------------------------------------------------------------------------
