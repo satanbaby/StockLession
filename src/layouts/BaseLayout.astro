@@ -66,7 +66,9 @@ const socialImageUrl = image.startsWith('http')
     <meta name="twitter:image" content={socialImageUrl} />
     <meta name="twitter:image:alt" content={imageAlt} />
 
-    <link rel="icon" href={withBase('/favicon.svg')} type="image/svg+xml" />
+    <link rel="icon" href={withBase('/favicon-32x32.png')} type="image/png" sizes="32x32" />
+    <link rel="icon" href={withBase('/favicon-192x192.png')} type="image/png" sizes="192x192" />
+    <link rel="apple-touch-icon" href={withBase('/apple-touch-icon.png')} sizes="180x180" />
 
     {/* jf open 粉圓，已子集化成全站實際用到的字（見 scripts/build-font.mjs）。
         單檔 240KB，整站共用，第一次載入之後都命中快取，所以直接 preload。 */}
