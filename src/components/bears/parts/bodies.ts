@@ -11,9 +11,13 @@ export interface BearSkin {
   images: Record<BearMood, string>;
 }
 
+const BASE_URL = import.meta.env.BASE_URL.endsWith('/')
+  ? import.meta.env.BASE_URL
+  : `${import.meta.env.BASE_URL}/`;
+
 function moodImages(folder: string): Record<BearMood, string> {
   return Object.fromEntries(
-    BEAR_MOODS.map((mood) => [mood, `/images/bears/${folder}/${mood}.webp`]),
+    BEAR_MOODS.map((mood) => [mood, `${BASE_URL}images/bears/${folder}/${mood}.webp`]),
   ) as Record<BearMood, string>;
 }
 

@@ -352,7 +352,10 @@ class IndicatorWorkbenchElement extends HTMLElement {
   async #loadSymbol(symbol: string): Promise<void> {
     this.#mount?.setAttribute('data-loading', 'true');
     try {
-      const res = await fetch(`/data/${symbol}.json`);
+      const baseUrl = import.meta.env.BASE_URL.endsWith('/')
+        ? import.meta.env.BASE_URL
+        : `${import.meta.env.BASE_URL}/`;
+      const res = await fetch(`${baseUrl}data/${symbol}.json`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { bars: Bar[] };
       this.#bars = data.bars;

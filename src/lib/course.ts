@@ -107,7 +107,11 @@ export async function neighbours(id: string): Promise<Neighbours> {
   };
 }
 
-export const lessonHref = (id: string): string => `/lessons/${id}/`;
+const BASE_URL = import.meta.env.BASE_URL.endsWith('/')
+  ? import.meta.env.BASE_URL
+  : `${import.meta.env.BASE_URL}/`;
+
+export const lessonHref = (id: string): string => `${BASE_URL}lessons/${id}/`;
 
 /** 難度星星 */
 export const difficultyStars = (n: number): string => '●'.repeat(n) + '○'.repeat(5 - n);

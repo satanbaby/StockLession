@@ -101,7 +101,7 @@ await writeFile(
 @font-face {
   font-family: "Huninn";
   src: local("jf open 粉圓"), local("jf-openhuninn"),
-       url("/fonts/huninn-subset.woff2") format("woff2");
+       url("./huninn-subset.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;

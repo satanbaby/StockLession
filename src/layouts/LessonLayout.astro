@@ -16,6 +16,9 @@ interface Props {
 const { lesson, nav, headings, prerequisites } = Astro.props;
 const { data } = lesson;
 const stage = STAGE_BY_ID[data.stage];
+const base = import.meta.env.BASE_URL.endsWith('/')
+  ? import.meta.env.BASE_URL
+  : `${import.meta.env.BASE_URL}/`;
 
 // 只收 h2，h3 以下放進目錄會太細碎
 const toc = headings.filter((h) => h.depth === 2);
@@ -30,7 +33,7 @@ const toc = headings.filter((h) => h.depth === 2);
     <article class="wrap__main">
       <header class="lead">
         <p class="lead__crumb">
-          <a href="/lessons/">課程</a>
+          <a href={`${base}lessons/`}>課程</a>
           <span aria-hidden="true">›</span>
           <span style={`--accent:${stage.accent}`} class="lead__stage">
             {stage.ordinal} {stage.title}

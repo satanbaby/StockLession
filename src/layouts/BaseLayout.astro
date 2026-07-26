@@ -17,6 +17,10 @@ const {
 } = Astro.props;
 
 const fullTitle = title === '熊熊小教室' ? title : `${title}｜熊熊小教室`;
+const base = import.meta.env.BASE_URL.endsWith('/')
+  ? import.meta.env.BASE_URL
+  : `${import.meta.env.BASE_URL}/`;
+const withBase = (path: string) => `${base}${path.replace(/^\//, '')}`;
 ---
 
 <!doctype html>
@@ -29,12 +33,12 @@ const fullTitle = title === '熊熊小教室' ? title : `${title}｜熊熊小教
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href={withBase('/favicon.svg')} type="image/svg+xml" />
 
     {/* jf open 粉圓，已子集化成全站實際用到的字（見 scripts/build-font.mjs）。
         單檔 240KB，整站共用，第一次載入之後都命中快取，所以直接 preload。 */}
-    <link rel="preload" href="/fonts/huninn-subset.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="/fonts/huninn.css" />
+    <link rel="preload" href={withBase('/fonts/huninn-subset.woff2')} as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href={withBase('/fonts/huninn.css')} />
 
     {/* 在畫面繪製前套用主題，避免深色模式使用者看到一閃的白底 */}
     <script is:inline>

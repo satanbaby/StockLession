@@ -10,6 +10,9 @@ const groups = await lessonsByStage();
 const lessons = await allLessons();
 const first = lessons[0];
 const total = lessons.length;
+const base = import.meta.env.BASE_URL.endsWith('/')
+  ? import.meta.env.BASE_URL
+  : `${import.meta.env.BASE_URL}/`;
 ---
 
 <BaseLayout
@@ -27,7 +30,7 @@ const total = lessons.length;
       </p>
       <div class="hero__cta">
         {first && <a class="btn btn--go" href={lessonHref(first.id)}>從第一課開始</a>}
-        <a class="btn" href="/lab/">直接玩指標實驗室</a>
+        <a class="btn" href={`${base}lab/`}>直接玩指標實驗室</a>
       </div>
       <p class="hero__meta">目前 {total} 課 · 資料為證交所真實日線 · 完全免費、不需註冊</p>
     </div>
@@ -117,7 +120,7 @@ const total = lessons.length;
       ))
     }
     <p class="map__more">
-      <a href="/lessons/">看完整課程總覽 →</a>
+      <a href={`${base}lessons/`}>看完整課程總覽 →</a>
     </p>
   </section>
 </BaseLayout>

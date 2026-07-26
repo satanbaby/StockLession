@@ -1,18 +1,21 @@
 ---
 import BearAvatar from '@/components/bears/BearAvatar.astro';
 
+const base = import.meta.env.BASE_URL.endsWith('/')
+  ? import.meta.env.BASE_URL
+  : `${import.meta.env.BASE_URL}/`;
 const path = Astro.url.pathname;
 const links = [
-  { href: '/lessons/', label: '課程' },
-  { href: '/lab/', label: '指標實驗室' },
-  { href: '/glossary/', label: '名詞索引' },
+  { href: `${base}lessons/`, label: '課程' },
+  { href: `${base}lab/`, label: '指標實驗室' },
+  { href: `${base}glossary/`, label: '名詞索引' },
 ];
 const isActive = (href: string) => path === href || path.startsWith(href);
 ---
 
 <header class="hdr">
   <div class="hdr__in">
-    <a class="brand" href="/">
+    <a class="brand" href={base}>
       <BearAvatar bear="duo" mood="happy" size={40} decorative class="brand__bear" />
       <span class="brand__text">熊熊小教室</span>
     </a>
