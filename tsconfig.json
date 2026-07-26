@@ -6,9 +6,9 @@
     "strictNullChecks": true,
     "noUncheckedIndexedAccess": true,
     "verbatimModuleSyntax": true,
-    "baseUrl": ".",
+    "types": ["node"],
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   }
 }

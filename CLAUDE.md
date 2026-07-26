@@ -8,25 +8,25 @@
 ## 指令
 
 ```bash
-npm run dev          # http://localhost:4321
-npm run build        # 靜態輸出到 dist/
-npm run check        # astro check（TS ＋ content schema）
-npm test             # vitest，指標計算的單元測試
-npm run fetch:twse   # 重新抓 TWSE 行情（一次性，約 10 分鐘）
-npm run build:font   # 重新子集化粉圓字型（build 會自動先跑）
-npm run preview:bears # 產生三熊接觸表 PNG（3×8 表情一次看完）
+pnpm dev          # http://localhost:4321
+pnpm build        # 靜態輸出到 dist/
+pnpm check        # astro check（TS ＋ content schema）
+pnpm test         # vitest，指標計算的單元測試
+pnpm fetch:twse   # 重新抓 TWSE 行情（一次性，約 10 分鐘）
+pnpm build:font   # 重新子集化粉圓字型（build 會自動先跑）
+pnpm preview:bears # 產生三熊接觸表 PNG（3×8 表情一次看完）
 ```
 
 `.claude/launch.json` 有兩組設定：`dev`（4321）與 `preview`（4330，跑 `dist/`）。
 瀏覽器分頁若沒有實際合成畫面，`IntersectionObserver` 不會觸發，**圖表會停在未初始化狀態**——那是環境限制不是 bug，改用 `dist/` 的 HTML 做靜態驗證。
 
-送出前跑：`npm run check && npm test && npm run build`。
+送出前跑：`pnpm check && pnpm test && pnpm build`。
 
 ## 技術棧與版本限制
 
-**Node 20.13.1 → Astro 鎖在 `^5.18`。** Astro 6 需要 Node `^20.19.1`、Astro 7 需要 `>=22.12.0`，兩者都不相容。升級 Node 22 LTS 之後才能跟進 Astro 7。
+**Node 24.18.0 LTS + pnpm 11。** `packageManager` 與 `pnpm-lock.yaml` 是唯一套件管理來源；不要新增 `package-lock.json`。
 
-- Astro 5 + MDX + Content Collections
+- Astro 7 + MDX + Content Collections
 - Tailwind CSS 4（走 `@tailwindcss/vite`，**不是**已棄用的 `@astrojs/tailwind`）
 - lightweight-charts **5**（v5 是破壞性改版，網路上多數範例還停在 v4）
 - KaTeX 建置期渲染，前端不載入 KaTeX 的 JS
@@ -62,7 +62,7 @@ src/
 - **RSI**：Wilder 平滑 α=1/N，**不是** EMA 的 α=2/(N+1)
 - **EMA**：種子是前 N 根的 SMA，**不是**第一根收盤價
 
-改指標必先跑 `npm test`。`registry.test.ts` 會拿三檔真實資料把每個登錄的指標掃過參數全範圍。
+改指標必先跑 `pnpm test`。`registry.test.ts` 會拿三檔真實資料把每個登錄的指標掃過參數全範圍。
 
 ### 新增指標
 
@@ -94,7 +94,7 @@ UI 不用動。`IndicatorLab` 與 `/lab` 的控制項、圖例、公式說明全
 
 一開始用 cn-font-split 切成 104 片，實測單一課程頁要抓 50 幾片、約 1.4MB —— 長文的用字會散落在大半分片裡，分片對這種內容根本省不到。改成單一子集後整站共用一個檔案，第一次載入後全部命中快取。
 
-代價是**新增課程若用到全新的字，要重跑 `npm run build:font`**。它掛在 `prebuild`，正式建置一定是最新的；`npm run dev` 期間漏掉的字會退回系統字型，不影響閱讀。
+代價是**新增課程若用到全新的字，要重跑 `pnpm build:font`**。它掛在 `prebuild`，正式建置一定是最新的；`pnpm dev` 期間漏掉的字會退回系統字型，不影響閱讀。
 
 ### 內容
 
@@ -118,7 +118,7 @@ UI 不用動。`IndicatorLab` 與 `/lab` 的控制項、圖例、公式說明全
 
 造型是 `public/images/bears/<folder>/<mood>.webp` 的透明去背圖，八種 mood（`neutral` `happy` `excited` `worried` `thinking` `shocked` `proud` `sleepy`）各一張，共 24 張。對應表在 `parts/bodies.ts`，型別在 `parts/geometry.ts`。
 
-換圖之後跑 `npm run preview:bears` 產出 3×8 接觸表一次檢視全部組合（用 sharp 合成，不需要跑 dev server）。
+換圖之後跑 `pnpm preview:bears` 產出 3×8 接觸表一次檢視全部組合（用 sharp 合成，不需要跑 dev server）。
 
 ## MDX 可用元件
 

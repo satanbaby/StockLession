@@ -3,14 +3,14 @@
   "configurations": [
     {
       "name": "dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
       "port": 4321
     },
     {
       "name": "preview",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["astro", "preview", "--port", "4330"],
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["exec", "astro", "preview", "--port", "4330"],
       "port": 4330
     }
   ]

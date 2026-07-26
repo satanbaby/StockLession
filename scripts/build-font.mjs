@@ -79,7 +79,7 @@ const hasInputTtf = await fileExists(INPUT);
 if (!hasInputTtf) {
   if (await fileExists(OUT_FILE)) {
     console.log('找不到原始字型 assets/fonts/jf-openhuninn-2.1.ttf，改用既有 public/fonts/huninn-subset.woff2。');
-    console.log('若要更新字型子集，請先放回原始 TTF 再重跑 npm run build:font。');
+    console.log('若要更新字型子集，請先放回原始 TTF 再重跑 pnpm build:font。');
     process.exit(0);
   }
   throw new Error(

@@ -33,7 +33,7 @@
 
 ## 技術棧
 
-- Astro 5
+- Astro 7
 - MDX Content Collections
 - Tailwind CSS 4
 - lightweight-charts 5
@@ -44,11 +44,12 @@
 
 ## 本機開發
 
-建議使用 Node.js `20.13.1`。
+使用 Node.js `24.18.0` 與 pnpm `11.17.0`。
 
 ```bash
-npm ci
-npm run dev
+corepack enable
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
 開發伺服器預設位於：
@@ -60,19 +61,19 @@ http://localhost:4321/StockLession/
 ## 常用指令
 
 ```bash
-npm run dev           # 啟動 Astro 開發伺服器
-npm run check         # 檢查 TypeScript 與內容 schema
-npm test              # 執行指標計算單元測試
-npm run build         # 建立靜態網站至 dist/
-npm run fetch:twse    # 重新抓取 TWSE 行情資料
-npm run build:font    # 重新產生粉圓字型子集
-npm run preview:bears # 產生三熊表情接觸表
+pnpm dev           # 啟動 Astro 開發伺服器
+pnpm check         # 檢查 TypeScript 與內容 schema
+pnpm test          # 執行指標計算單元測試
+pnpm build         # 建立靜態網站至 dist/
+pnpm fetch:twse    # 重新抓取 TWSE 行情資料
+pnpm build:font    # 重新產生粉圓字型子集
+pnpm preview:bears # 產生三熊表情接觸表
 ```
 
 送出變更前請執行：
 
 ```bash
-npm run check && npm test && npm run build
+pnpm check && pnpm test && pnpm build
 ```
 
 ## 專案結構
