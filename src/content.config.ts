@@ -12,8 +12,15 @@ const lessons = defineCollection({
   loader: glob({ base: './src/content/lessons', pattern: '**/*.mdx' }),
   schema: z.object({
     title: z.string(),
-    /** 四個階段，決定課程在側欄的分組與代言的熊 */
-    stage: z.enum(['foundations', 'patterns', 'indicators', 'advanced']),
+    /** 六個階段，決定課程在側欄的分組與代言的熊 */
+    stage: z.enum([
+      'market',
+      'foundations',
+      'patterns',
+      'indicators',
+      'fundamentals',
+      'advanced',
+    ]),
     /** 階段內排序 */
     order: z.number().int().positive(),
     /** 列表頁與課程卡片上的一句話摘要 */
