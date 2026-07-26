@@ -20,7 +20,7 @@
  */
 
 import subsetFont from 'subset-font';
-import { readFile, writeFile, mkdir, readdir, rm, stat } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, rm, stat, access } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,6 +29,15 @@ const INPUT = join(ROOT, 'assets', 'fonts', 'jf-openhuninn-2.1.ttf');
 const OUT_DIR = join(ROOT, 'public', 'fonts');
 const OUT_FILE = join(OUT_DIR, 'huninn-subset.woff2');
 const OUT_CSS = join(OUT_DIR, 'huninn.css');
+
+async function fileExists(path) {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /** 一定要收進去的字，即使目前沒用到 —— 數字、標點、常見符號、注音 */
 const ALWAYS = [
@@ -65,6 +74,20 @@ const text = [...chars].join('');
 console.log(`掃描到 ${chars.size} 個字元，子集化中…`);
 
 await mkdir(OUT_DIR, { recursive: true });
+
+const hasInputTtf = await fileExists(INPUT);
+if (!hasInputTtf) {
+  if (await fileExists(OUT_FILE)) {
+    console.log('找不到原始字型 assets/fonts/jf-openhuninn-2.1.ttf，改用既有 public/fonts/huninn-subset.woff2。');
+    console.log('若要更新字型子集，請先放回原始 TTF 再重跑 npm run build:font。');
+    process.exit(0);
+  }
+  throw new Error(
+    '找不到原始字型 assets/fonts/jf-openhuninn-2.1.ttf，且 public/fonts/huninn-subset.woff2 也不存在。' +
+      ' 請加入其中之一後再建置。',
+  );
+}
+
 // 舊的分片版本留著只會佔空間又讓人困惑
 await rm(join(OUT_DIR, 'huninn'), { recursive: true, force: true });
 
