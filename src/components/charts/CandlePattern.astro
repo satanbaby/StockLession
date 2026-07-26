@@ -1,0 +1,226 @@
+---
+/**
+ * 二到三根 K 線的組合示意圖。純 SVG，不需要圖表引擎。
+ *
+ * 為什麼不用真實資料：講「吞噬」的時候，重點是第二根的實體有沒有蓋過第一根。
+ * 真實 K 棒的比例、跳空、影線長度全部都是干擾。原型記住了，再去真實圖上找歪掉的版本。
+ *
+ *   <CandlePattern items={[{ name: '看漲吞噬', note: '…', candles: [...] }]} />
+ *
+ * candles 的價格用任意刻度即可 —— 每一組會各自正規化到畫面高度，
+ * 所以你只要把「相對關係」寫對就好，不用湊出真實價位。
+ */
+
+interface Candle {
+  open: number;
+  close: number;
+  /** 沒給就用實體上緣 */
+  high?: number;
+  /** 沒給就用實體下緣 */
+  low?: number;
+  /** 畫在這根下方的小標籤 */
+  tag?: string;
+}
+
+interface PatternItem {
+  name: string;
+  /** 這個組合在說什麼故事 */
+  note: string;
+  candles: Candle[];
+  /** 多方組合／空方組合／中性 */
+  bias?: 'bull' | 'bear' | 'neutral';
+}
+
+interface Props {
+  items: PatternItem[];
+  /** 每列幾張，預設自動 */
+  columns?: number;
+  class?: string;
+}
+
+const { items, columns, class: className = '' } = Astro.props;
+
+const SLOT = 46;
+const TOP = 12;
+const BOTTOM = 128;
+const BODY_W = 22;
+const CANVAS_H = 150;
+
+const BIAS_LABEL: Record<NonNullable<PatternItem['bias']>, string> = {
+  bull: '偏多',
+  bear: '偏空',
+  neutral: '待確認',
+};
+
+/** 每一組各自把價格正規化到 TOP~BOTTOM，所以組與組之間的絕對高度不可比較。 */
+function layout(candles: Candle[]) {
+  const highs = candles.map((c) => c.high ?? Math.max(c.open, c.close));
+  const lows = candles.map((c) => c.low ?? Math.min(c.open, c.close));
+  const max = Math.max(...highs);
+  const min = Math.min(...lows);
+  const span = max - min || 1;
+  const y = (v: number) => TOP + ((max - v) / span) * (BOTTOM - TOP);
+
+  return candles.map((c, i) => {
+    const top = Math.max(c.open, c.close);
+    const bottom = Math.min(c.open, c.close);
+    const dir = c.close > c.open ? 'up' : c.close < c.open ? 'down' : 'flat';
+    return {
+      cx: i * SLOT + SLOT / 2,
+      wickTop: y(c.high ?? top),
+      wickBottom: y(c.low ?? bottom),
+      bodyTop: y(top),
+      // 十字線的實體高度是 0，給它最小厚度才看得見
+      bodyHeight: Math.max(y(bottom) - y(top), 3),
+      color: dir === 'up' ? 'var(--c-up)' : dir === 'down' ? 'var(--c-down)' : 'var(--c-flat)',
+      tag: c.tag,
+    };
+  });
+}
+
+const rendered = items.map((item) => ({
+  ...item,
+  width: item.candles.length * SLOT,
+  drawn: layout(item.candles),
+}));
+---
+
+<div
+  class:list={['pat', className]}
+  style={columns ? `--pat-cols:${columns}` : undefined}
+  data-fixed-cols={columns ? 'true' : undefined}
+>
+  {
+    rendered.map((item) => (
+      <figure class="pat__item">
+        <div class="pat__head">
+          <b>{item.name}</b>
+          {item.bias && (
+            <span class:list={['pat__bias', `pat__bias--${item.bias}`]}>
+              {BIAS_LABEL[item.bias]}
+            </span>
+          )}
+        </div>
+
+        <svg
+          viewBox={`0 0 ${item.width} ${CANVAS_H}`}
+          role="img"
+          aria-label={`${item.name}示意圖`}
+          class="pat__svg"
+          style={`max-width:${item.width * 1.5}px`}
+        >
+          {item.drawn.map((c) => (
+            <g>
+              <line
+                x1={c.cx}
+                y1={c.wickTop}
+                x2={c.cx}
+                y2={c.wickBottom}
+                stroke={c.color}
+                stroke-width="2.5"
+              />
+              <rect
+                x={c.cx - BODY_W / 2}
+                y={c.bodyTop}
+                width={BODY_W}
+                height={c.bodyHeight}
+                rx="2"
+                fill={c.color}
+              />
+              {c.tag && (
+                <text
+                  x={c.cx}
+                  y={CANVAS_H - 4}
+                  text-anchor="middle"
+                  font-size="11"
+                  fill="var(--c-ink-soft)"
+                >
+                  {c.tag}
+                </text>
+              )}
+            </g>
+          ))}
+        </svg>
+
+        <figcaption>{item.note}</figcaption>
+      </figure>
+    ))
+  }
+</div>
+
+<style>
+  .pat {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 0.85rem;
+    margin: 1.75rem 0;
+  }
+
+  .pat[data-fixed-cols] {
+    grid-template-columns: repeat(var(--pat-cols), minmax(0, 1fr));
+  }
+
+  .pat__item {
+    margin: 0;
+    background: var(--c-surface);
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    box-shadow: var(--shadow-sticker-sm);
+    padding: 0.85rem 0.9rem 1rem;
+    display: grid;
+    gap: 0.5rem;
+    justify-items: center;
+  }
+
+  .pat__head {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .pat__head b {
+    font-size: 0.95rem;
+  }
+
+  .pat__bias {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    border: 1.5px solid currentColor;
+    line-height: 1.6;
+  }
+
+  /* 這裡的紅綠是在描述「這個型態偏多還偏空」，跟 K 棒漲跌同一套語意，不算挪用 */
+  .pat__bias--bull {
+    color: var(--c-up);
+  }
+
+  .pat__bias--bear {
+    color: var(--c-down);
+  }
+
+  .pat__bias--neutral {
+    color: var(--c-ink-soft);
+  }
+
+  .pat__svg {
+    width: 100%;
+    height: auto;
+    font-family: inherit;
+  }
+
+  .pat__item figcaption {
+    font-size: 0.8125rem;
+    line-height: 1.7;
+    color: var(--c-ink-soft);
+    text-align: center;
+  }
+
+  @media (max-width: 560px) {
+    .pat[data-fixed-cols] {
+      grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    }
+  }
+</style>

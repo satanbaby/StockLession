@@ -1,0 +1,255 @@
+---
+/**
+ * 均線交叉參數的掃描熱圖。
+ *
+ * 整張表在**建置期**就算完了（幾百次回測，純粹是迴圈跑陣列），
+ * 所以前端一行 JS 都不用載 —— 這是靜態網站的紅利。
+ *
+ * 顏色刻意不用紅綠。全站的紅綠專屬於「今天漲還是跌」，
+ * 這裡的報酬率如果也套紅綠，讀者的顏色直覺會被稀釋。
+ * 改用單一色相的深淺：正報酬走品牌藍，越深越好；負報酬走灰棕。
+ *
+ * 使用時記得同時放 A、B 兩段不同期間 —— 這個元件的教學價值不在
+ * 「哪一格最漂亮」，而在「兩段期間的漂亮格子不是同一格」。
+ */
+import { sweep } from '@/lib/backtest';
+import { dataset, label, type SymbolId } from '@/lib/data';
+import { sliceBars } from '@/lib/data';
+
+type Metric = 'totalReturn' | 'winRate' | 'tradeCount' | 'maxDrawdown';
+
+interface Props {
+  symbol: SymbolId;
+  from?: string;
+  to?: string;
+  fastValues?: number[];
+  slowValues?: number[];
+  metric?: Metric;
+  title?: string;
+  caption?: string;
+  class?: string;
+}
+
+const {
+  symbol,
+  from,
+  to,
+  fastValues = [3, 5, 8, 10, 13, 15, 20, 25],
+  slowValues = [20, 30, 40, 50, 60, 80, 100, 120],
+  metric = 'totalReturn',
+  title,
+  caption,
+  class: className = '',
+} = Astro.props;
+
+const { bars } = sliceBars(dataset(symbol).bars, { from, to });
+const cells = sweep(bars, fastValues, slowValues);
+
+const METRIC_LABEL: Record<Metric, string> = {
+  totalReturn: '累積報酬率',
+  winRate: '勝率',
+  tradeCount: '交易次數',
+  maxDrawdown: '最大回落',
+};
+
+const read = (c: (typeof cells)[number]): number => {
+  const r = c.result;
+  if (metric === 'winRate') return r.winRate * 100;
+  if (metric === 'tradeCount') return r.tradeCount;
+  if (metric === 'maxDrawdown') return r.maxDrawdown;
+  return r.totalReturn;
+};
+
+const values = cells.map(read);
+const max = Math.max(...values, 0);
+const min = Math.min(...values, 0);
+
+const byKey = new Map(cells.map((c) => [`${c.fast}:${c.slow}`, c]));
+
+/** 0~1 的強度，決定色塊深淺 */
+function intensity(v: number): number {
+  if (v >= 0) return max > 0 ? Math.min(1, v / max) : 0;
+  return min < 0 ? Math.min(1, v / min) : 0;
+}
+
+const format = (v: number): string => {
+  if (metric === 'tradeCount') return String(Math.round(v));
+  if (metric === 'winRate') return `${v.toFixed(0)}%`;
+  return `${v >= 0 ? '+' : ''}${v.toFixed(0)}%`;
+};
+
+// 最佳格：報酬與勝率越高越好，回落與次數不做排名
+const rankable = metric === 'totalReturn' || metric === 'winRate';
+const best = rankable ? cells.reduce((a, b) => (read(b) > read(a) ? b : a), cells[0]!) : null;
+
+const buyHold = bars.length ? (bars.at(-1)!.close / bars[0]!.close - 1) * 100 : 0;
+const period = bars.length ? `${bars[0]!.time} ~ ${bars.at(-1)!.time}` : '';
+---
+
+<figure class:list={['sweep', className]}>
+  {
+    title && (
+      <figcaption class="sweep__title">
+        {title}
+        <span class="sweep__meta">
+          {label(symbol)} · {period} · {METRIC_LABEL[metric]}
+        </span>
+      </figcaption>
+    )
+  }
+
+  <div class="sweep__scroll">
+    <table class="sweep__table">
+      <caption class="sr-only">
+        {label(symbol)} {period} 的均線交叉參數掃描，數值為{METRIC_LABEL[metric]}
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">慢線＼快線</th>
+          {fastValues.map((f) => <th scope="col">{f}</th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {
+          slowValues.map((s) => (
+            <tr>
+              <th scope="row">{s}</th>
+              {fastValues.map((f) => {
+                const cell = byKey.get(`${f}:${s}`);
+                if (!cell) return <td class="is-void" aria-label="快線不得大於等於慢線" />;
+                const v = read(cell);
+                const isBest = best !== null && cell === best;
+                return (
+                  <td
+                    class:list={['num', v < 0 && 'is-neg', isBest && 'is-best']}
+                    style={`--k:${intensity(v).toFixed(3)}`}
+                    title={`MA${f} × MA${s}：報酬 ${cell.result.totalReturn.toFixed(1)}%、交易 ${cell.result.tradeCount} 次、勝率 ${(cell.result.winRate * 100).toFixed(0)}%、最大回落 ${cell.result.maxDrawdown.toFixed(1)}%`}
+                  >
+                    {format(v)}
+                  </td>
+                );
+              })}
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <p class="sweep__legend">
+    同期間<b>買進持有</b>的報酬是 <b>{buyHold >= 0 ? '+' : ''}{buyHold.toFixed(1)}%</b>。
+    回測已扣除來回 0.585% 的手續費與證交稅，訊號一律以隔日開盤價成交。
+    {best && <> 這段期間的冠軍是 <b>MA{best.fast} × MA{best.slow}</b>。</>}
+  </p>
+
+  {caption && <p class="sweep__caption">{caption}</p>}
+</figure>
+
+<style>
+  .sweep {
+    margin: 1.75rem 0;
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    background: var(--c-surface);
+    box-shadow: var(--shadow-sticker);
+    padding: 1rem 1.05rem 1.1rem;
+  }
+
+  .sweep__title {
+    display: grid;
+    gap: 0.15rem;
+    margin-bottom: 0.8rem;
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  .sweep__meta {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--c-ink-soft);
+  }
+
+  .sweep__scroll {
+    overflow-x: auto;
+    /* 手機上表格一定裝不下，讓它自己捲，頁面不要被撐寬 */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sweep__table {
+    border-collapse: separate;
+    border-spacing: 2px;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.8125rem;
+    margin: 0;
+    width: 100%;
+    min-width: 30rem;
+  }
+
+  .sweep__table th {
+    font-size: 0.75rem;
+    color: var(--c-ink-soft);
+    padding: 0.25rem 0.4rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .sweep__table thead th:first-child {
+    text-align: left;
+  }
+
+  .sweep__table td {
+    text-align: center;
+    padding: 0.4rem 0.3rem;
+    border-radius: 6px;
+    /* --k 是 0~1 的強度，用透明度疊在底色上，深淺自然跟著主題走 */
+    background: color-mix(in srgb, var(--c-brand) calc(var(--k) * 78%), var(--c-surface-2));
+    color: var(--c-ink);
+  }
+
+  .sweep__table td.is-neg {
+    background: color-mix(in srgb, var(--c-brown) calc(var(--k) * 45%), var(--c-surface-2));
+    color: var(--c-ink-soft);
+  }
+
+  .sweep__table td.is-void {
+    background: transparent;
+  }
+
+  .sweep__table td.is-best {
+    outline: 2.5px solid var(--c-accent);
+    outline-offset: -2px;
+    font-weight: 700;
+  }
+
+  .sweep__legend {
+    margin: 0.85rem 0 0;
+    font-size: 0.8125rem;
+    line-height: 1.85;
+    color: var(--c-ink-soft);
+  }
+
+  .sweep__legend b {
+    color: var(--c-ink);
+  }
+
+  .sweep__caption {
+    margin: 0.6rem 0 0;
+    padding-top: 0.7rem;
+    border-top: 2px dashed var(--c-line-soft);
+    font-size: 0.875rem;
+    line-height: 1.85;
+    color: var(--c-ink-soft);
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+</style>

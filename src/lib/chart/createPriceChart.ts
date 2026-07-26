@@ -47,6 +47,22 @@ export interface IndicatorLayer {
   params: ParamValues;
 }
 
+/**
+ * 一條斜線標註。
+ *
+ * lightweight-charts 沒有內建畫線工具，但「只有兩個資料點的 LineSeries」
+ * 畫出來就是一條線段 —— 趨勢線、傾斜頸線、旗形上下緣全都用這招。
+ */
+export interface TrendLine {
+  from: { time: string; price: number };
+  to: { time: string; price: number };
+  /** 沿著同樣的斜率延伸到資料最後一根，用來畫「還在延伸中的趨勢線」 */
+  extend?: boolean;
+  color?: string;
+  dashed?: boolean;
+  lineWidth?: 1 | 2 | 3;
+}
+
 export interface PriceChartOptions {
   bars: readonly Bar[];
   /** 疊在 K 線上的指標（均線、布林通道…） */
@@ -63,6 +79,8 @@ export interface PriceChartOptions {
   visibleRange?: { from: string; to: string };
   /** 水平參考線，例如頸線、支撐壓力 */
   priceLines?: { price: number; label: string; color?: string; dashed?: boolean }[];
+  /** 斜線標註，例如趨勢線、傾斜頸線、旗形邊界 */
+  trendLines?: TrendLine[];
   /** 關掉時間軸與十字線，用在只想秀形狀的小圖 */
   minimal?: boolean;
   /**
@@ -207,6 +225,55 @@ export function createPriceChart(
         title: line.label,
       }),
     );
+  }
+
+  // ---- 斜線標註 ---------------------------------------------------------
+  /** themed = 沒有指定顏色，主題切換時要跟著換 */
+  const trendSeries: { api: ISeriesApi<'Line', Time>; themed: boolean }[] = [];
+
+  /** 找出這個日期落在第幾根。找不到就取「第一根不早於它」的位置。 */
+  const barIndexAt = (time: string): number => {
+    const exact = bars.findIndex((b) => b.time === time);
+    if (exact >= 0) return exact;
+    const after = bars.findIndex((b) => b.time > time);
+    return after >= 0 ? after : bars.length - 1;
+  };
+
+  for (const line of options.trendLines ?? []) {
+    const i0 = barIndexAt(line.from.time);
+    const i1 = barIndexAt(line.to.time);
+    if (i0 < 0 || i1 < 0 || i0 === i1) continue;
+
+    const points = [
+      { time: bars[i0]!.time as Time, value: line.from.price },
+      { time: bars[i1]!.time as Time, value: line.to.price },
+    ];
+
+    if (line.extend && i1 < bars.length - 1) {
+      const slope = (line.to.price - line.from.price) / (i1 - i0);
+      const last = bars.length - 1;
+      points.push({
+        time: bars[last]!.time as Time,
+        value: line.to.price + slope * (last - i1),
+      });
+    }
+
+    const api = chart.addSeries(
+      LineSeries,
+      {
+        color: line.color ?? colors.guideStrong,
+        lineWidth: line.lineWidth ?? 2,
+        lineStyle: line.dashed ? LineStyle.Dashed : LineStyle.Solid,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+        // 斜線只是標註，不該把主圖的價格軸撐開
+        autoscaleInfoProvider: () => null,
+      },
+      0,
+    );
+    api.setData(points);
+    trendSeries.push({ api, themed: !line.color });
   }
 
   // ---- 成交量副圖 -------------------------------------------------------
@@ -436,6 +503,10 @@ export function createPriceChart(
 
     for (const layer of layers.values()) {
       layer.api.applyOptions({ color: resolveColor(layer.color, colors, dir) });
+    }
+
+    for (const t of trendSeries) {
+      if (t.themed) t.api.applyOptions({ color: colors.guideStrong });
     }
   });
 

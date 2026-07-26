@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
-  "description": "三熊教室 — 台股技術分析教學網站",
+  "description": "熊熊小教室 — 台股技術分析教學網站",
   "engines": {
     "node": ">=20.3.0"
   },

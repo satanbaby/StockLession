@@ -11,9 +11,11 @@
  * 課文用的區間通常只有幾十到幾百根，內嵌成本很低。
  */
 import ChartFrame from './ChartFrame.astro';
-import { slice, label, dataset, type SymbolId } from '@/lib/data';
+import { sliceBars, label, dataset, type SymbolId } from '@/lib/data';
+import { resample, TIMEFRAME_LABEL, type Timeframe } from '@/lib/resample';
 import type { Bar } from '@/lib/indicators/types';
 import type { ParamValues } from '@/lib/indicators';
+import type { TrendLine } from '@/lib/chart/createPriceChart';
 
 interface LayerConfig {
   id: string;
@@ -28,6 +30,12 @@ interface Props {
   from?: string;
   to?: string;
   last?: number;
+  /**
+   * 日／週／月。週線月線是從日線疊出來的（lib/resample.ts）。
+   * 注意 from/to/warmup 在這裡是以「疊完之後的根數」計算 ——
+   * timeframe="week" 加 warmup={20} 是往前多留 20 根週線，不是 20 天。
+   */
+  timeframe?: Timeframe;
   /**
    * 往前多抓幾根當暖機。
    * 想看 MA60 從畫面第一根就有值，這裡至少要給 60。
@@ -51,6 +59,8 @@ interface Props {
     text?: string;
   }[];
   priceLines?: { price: number; label: string; color?: string; dashed?: boolean }[];
+  /** 斜線標註：趨勢線、傾斜頸線、旗形上下緣 */
+  trendLines?: TrendLine[];
   class?: string;
 }
 
@@ -60,6 +70,7 @@ const {
   from,
   to,
   last,
+  timeframe = 'day',
   warmup = 0,
   overlays = [],
   panes = [],
@@ -72,15 +83,17 @@ const {
   synthetic = false,
   markers,
   priceLines,
+  trendLines,
   class: className = '',
 } = Astro.props;
 
 if (!symbol && !rawBars) throw new Error('PriceChart 需要 symbol 或 bars 其中之一');
 
-const picked = symbol ? slice(symbol, { from, to, last, warmup }) : { bars: rawBars!, visibleRange: undefined };
+const base = symbol ? dataset(symbol).bars : rawBars!;
+const picked = sliceBars(resample(base, timeframe), { from, to, last, warmup });
 
 const source = symbol
-  ? `${label(symbol)} 日線 · ${dataset(symbol).source}`
+  ? `${label(symbol)} ${TIMEFRAME_LABEL[timeframe]} · ${dataset(symbol).source}`
   : synthetic
     ? '教學用合成資料'
     : undefined;
@@ -96,6 +109,7 @@ const config = {
   visibleRange: picked.visibleRange,
   markers,
   priceLines,
+  trendLines,
 };
 
 const legend = [...overlays, ...panes].map((l) => l.id);

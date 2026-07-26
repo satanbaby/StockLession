@@ -10,7 +10,12 @@
 
 import { INDICATOR_BY_ID, defaultParams, type ParamValues } from '@/lib/indicators';
 import type { Bar } from '@/lib/indicators/types';
-import { createPriceChart, type IndicatorLayer, type PriceChartHandle } from './createPriceChart';
+import {
+  createPriceChart,
+  type IndicatorLayer,
+  type PriceChartHandle,
+  type TrendLine,
+} from './createPriceChart';
 import type { ColorDirection } from './theme';
 
 interface LayerConfig {
@@ -29,6 +34,7 @@ interface ChartConfig {
   minimal?: boolean;
   visibleRange?: { from: string; to: string };
   priceLines?: { price: number; label: string; color?: string; dashed?: boolean }[];
+  trendLines?: TrendLine[];
   markers?: {
     time: string;
     position: 'aboveBar' | 'belowBar' | 'inBar';
@@ -103,6 +109,7 @@ class PriceChartElement extends HTMLElement {
         minimal: config.minimal ?? false,
         visibleRange: config.visibleRange,
         priceLines: config.priceLines,
+        trendLines: config.trendLines,
         markers: config.markers?.map((m) => ({
           time: m.time,
           position: m.position,

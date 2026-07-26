@@ -72,7 +72,18 @@ export function slice(
   symbol: SymbolId,
   options: SliceOptions = {},
 ): { bars: Bar[]; visibleRange?: { from: string; to: string } } {
-  const all = DATASETS[symbol].bars;
+  return sliceBars(DATASETS[symbol].bars, options);
+}
+
+/**
+ * slice() 的通用版本，吃任何一組 Bar[]。
+ * 週線／月線是從日線疊出來的（見 lib/resample.ts），不在 DATASETS 裡，
+ * 合成型態資料也一樣 —— 這兩種都走這條路。
+ */
+export function sliceBars(
+  all: readonly Bar[],
+  options: SliceOptions = {},
+): { bars: Bar[]; visibleRange?: { from: string; to: string } } {
   const { from, to, warmup = 0, last } = options;
 
   if (last !== undefined) {

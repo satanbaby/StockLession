@@ -1,0 +1,344 @@
+---
+/**
+ * 看圖辨識型態的連續測驗。
+ *
+ * 跟 <Quiz> 的差別在於「題目是一張圖，而不是一段文字」——
+ * 辨識型態是視覺技能，用文字描述再問一次等於在考閱讀理解。
+ *
+ * 每題作答後會攤開所有選項的解析，最後給一個總分。
+ * 分數不寫進 localStorage：這是練習不是考試，重來一次應該從零開始。
+ */
+import PriceChart from '@/components/charts/PriceChart.astro';
+import BearAvatar from '@/components/bears/BearAvatar.astro';
+import type { Bar } from '@/lib/indicators/types';
+
+interface Option {
+  text: string;
+  correct?: boolean;
+  why: string;
+}
+
+interface Round {
+  bars: Bar[];
+  /** 這一題的提問，沒給就用共用的那句 */
+  question?: string;
+  options: Option[];
+  /** 作答後才顯示的觀察重點 */
+  reveal?: string;
+  /** 疊在圖上的水平線（頸線、壓力），作答前就顯示 */
+  priceLines?: { price: number; label: string; dashed?: boolean }[];
+}
+
+interface Props {
+  rounds: Round[];
+  /** 共用提問 */
+  question?: string;
+  height?: number;
+  class?: string;
+}
+
+const {
+  rounds,
+  question = '這張圖最接近哪一種型態？',
+  height = 240,
+  class: className = '',
+} = Astro.props;
+
+rounds.forEach((r, i) => {
+  if (!r.options.some((o) => o.correct)) {
+    throw new Error(`PatternDrill 第 ${i + 1} 題沒有任何正解選項`);
+  }
+});
+
+const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+---
+
+<pattern-drill class:list={['drill', className]} data-total={rounds.length}>
+  <header class="drill__head">
+    <span class="drill__badge">看圖練習</span>
+    <p class="drill__intro">
+      以下每一張都是合成的示意圖，形狀比真實行情乾淨。先看形狀，再看下方的成交量，然後才作答。
+    </p>
+    <p class="drill__score" data-score aria-live="polite">尚未作答 · 共 {rounds.length} 題</p>
+  </header>
+
+  {
+    rounds.map((round, ri) => (
+      <section class="drill__round" data-round>
+        <p class="drill__q">
+          <span class="drill__no">第 {ri + 1} 題</span>
+          {round.question ?? question}
+        </p>
+
+        <PriceChart
+          bars={round.bars}
+          synthetic
+          minimal
+          height={height}
+          paneHeight={Math.round(height * 0.34)}
+          priceLines={round.priceLines}
+        />
+
+        <ul class="drill__opts" role="list">
+          {round.options.map((o, oi) => (
+            <li>
+              <button
+                type="button"
+                class="opt"
+                data-correct={o.correct ? 'true' : 'false'}
+                aria-pressed="false"
+              >
+                <span class="opt__key" aria-hidden="true">
+                  {letters[oi]}
+                </span>
+                <span class="opt__text">{o.text}</span>
+                <span class="opt__mark" aria-hidden="true" />
+              </button>
+              <p class="opt__why" hidden>
+                {o.why}
+              </p>
+            </li>
+          ))}
+        </ul>
+
+        {round.reveal && (
+          <p class="drill__reveal" hidden data-reveal>
+            <b>觀察重點：</b>
+            {round.reveal}
+          </p>
+        )}
+      </section>
+    ))
+  }
+
+  <footer class="drill__foot" hidden data-foot>
+    <BearAvatar bear="jun" mood="thinking" size={52} decorative />
+    <p data-verdict />
+  </footer>
+</pattern-drill>
+
+<script>
+  class PatternDrill extends HTMLElement {
+    #answered = 0;
+    #right = 0;
+
+    connectedCallback() {
+      const total = Number(this.dataset.total ?? '0');
+      const score = this.querySelector<HTMLElement>('[data-score]');
+      const foot = this.querySelector<HTMLElement>('[data-foot]');
+      const verdict = this.querySelector<HTMLElement>('[data-verdict]');
+
+      for (const round of this.querySelectorAll<HTMLElement>('[data-round]')) {
+        const buttons = [...round.querySelectorAll<HTMLButtonElement>('.opt')];
+
+        for (const btn of buttons) {
+          btn.addEventListener('click', () => {
+            // 一題只能作答一次，否則分數沒有意義
+            if (round.dataset.done) return;
+            round.dataset.done = 'true';
+
+            const picked = btn.dataset.correct === 'true';
+            this.#answered += 1;
+            if (picked) this.#right += 1;
+
+            for (const other of buttons) {
+              other.setAttribute('aria-pressed', String(other === btn));
+              other.classList.toggle('is-picked', other === btn);
+              other.classList.add(other.dataset.correct === 'true' ? 'is-right' : 'is-wrong');
+              const why = other.parentElement?.querySelector<HTMLElement>('.opt__why');
+              if (why) why.hidden = false;
+            }
+
+            const reveal = round.querySelector<HTMLElement>('[data-reveal]');
+            if (reveal) reveal.hidden = false;
+
+            if (score) score.textContent = `已作答 ${this.#answered} / ${total} · 答對 ${this.#right}`;
+
+            if (this.#answered === total && foot && verdict) {
+              foot.hidden = false;
+              verdict.textContent = this.#verdict(this.#right, total);
+            }
+          });
+        }
+      }
+    }
+
+    #verdict(right: number, total: number): string {
+      const rate = right / total;
+      if (rate === 1) {
+        return `${right} / ${total} 全對。接下來的挑戰不是辨識形狀，而是判斷「這個型態值不值得下注」—— 那要靠量能與趨勢環境。`;
+      }
+      if (rate >= 0.6) {
+        return `${right} / ${total}。形狀大致抓得到了。錯的那幾題回頭看解析，通常卡在「型態還沒完成就先認定」。`;
+      }
+      return `${right} / ${total}。先別急著往下走，回去把「反轉型態」與「整理型態」兩課的量能段落再看一次 —— 形狀對但量能不對的型態，本來就不該算數。`;
+    }
+  }
+
+  if (!customElements.get('pattern-drill')) customElements.define('pattern-drill', PatternDrill);
+</script>
+
+<style>
+  .drill {
+    display: block;
+    margin: 2rem 0;
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    background: var(--c-surface-2);
+    box-shadow: var(--shadow-sticker);
+    padding: 1.1rem 1.15rem 1.25rem;
+  }
+
+  .drill__head {
+    display: grid;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .drill__badge {
+    justify-self: start;
+    padding: 0.1rem 0.6rem;
+    border: 2px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-brand);
+    color: var(--c-on-brand);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .drill__intro {
+    margin: 0;
+    font-size: 0.9375rem;
+    line-height: 1.8;
+    color: var(--c-ink-soft);
+  }
+
+  .drill__score {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--c-ink-soft);
+  }
+
+  .drill__round + .drill__round {
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 2px dashed var(--c-line-soft);
+  }
+
+  .drill__q {
+    margin: 0 0 0.4rem;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.75;
+  }
+
+  .drill__no {
+    display: inline-block;
+    margin-right: 0.45rem;
+    color: var(--c-brand);
+  }
+
+  .drill__opts {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 0;
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .opt {
+    display: grid;
+    grid-template-columns: 1.6rem 1fr 1.3rem;
+    align-items: start;
+    gap: 0.6rem;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    padding: 0.55rem 0.8rem;
+    border: 2px solid var(--c-line-soft);
+    border-radius: var(--radius-bear-sm);
+    background: var(--c-surface);
+    color: var(--c-ink);
+    cursor: pointer;
+  }
+
+  .opt:hover:not(.is-right):not(.is-wrong) {
+    border-color: var(--c-line);
+    background: var(--c-surface-2);
+  }
+
+  .opt__key {
+    display: grid;
+    place-items: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 999px;
+    background: var(--c-surface-2);
+    font-size: 0.8125rem;
+    font-weight: 700;
+  }
+
+  .opt.is-right {
+    border-color: var(--c-down);
+    background: var(--c-down-wash);
+    cursor: default;
+  }
+
+  .opt.is-wrong {
+    cursor: default;
+    opacity: 0.68;
+  }
+
+  .opt.is-wrong.is-picked {
+    border-color: var(--c-up);
+    background: var(--c-up-wash);
+    opacity: 1;
+  }
+
+  .opt.is-right .opt__mark::after {
+    content: '✓';
+    color: var(--c-down);
+    font-weight: 700;
+  }
+
+  .opt.is-wrong.is-picked .opt__mark::after {
+    content: '✕';
+    color: var(--c-up);
+    font-weight: 700;
+  }
+
+  .opt__why {
+    margin: 0.3rem 0 0.15rem 2.4rem;
+    font-size: 0.875rem;
+    line-height: 1.8;
+    color: var(--c-ink-soft);
+  }
+
+  .drill__reveal {
+    margin: 0.8rem 0 0;
+    padding: 0.7rem 0.85rem;
+    border-left: 4px solid var(--c-brand);
+    border-radius: var(--radius-bear-sm);
+    background: var(--c-surface);
+    font-size: 0.875rem;
+    line-height: 1.85;
+  }
+
+  .drill__foot {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    margin-top: 1.4rem;
+    padding-top: 1rem;
+    border-top: 2px dashed var(--c-line-soft);
+  }
+
+  .drill__foot p {
+    margin: 0;
+    font-size: 0.9375rem;
+    line-height: 1.8;
+  }
+</style>

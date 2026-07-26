@@ -11,10 +11,14 @@ import BearScene from './bears/BearScene.astro';
 import PriceChart from './charts/PriceChart.astro';
 import IndicatorLab from './charts/IndicatorLab.astro';
 import CandleAnatomy from './charts/CandleAnatomy.astro';
+import CandlePattern from './charts/CandlePattern.astro';
 import ChartFrame from './charts/ChartFrame.astro';
+import ParamSweep from './charts/ParamSweep.astro';
 import Callout from './learn/Callout.astro';
 import FormulaBlock from './learn/FormulaBlock.astro';
 import Quiz from './learn/Quiz.astro';
+import PatternDrill from './learn/PatternDrill.astro';
+import RiskCalculator from './learn/RiskCalculator.astro';
 import KeyTakeaways from './learn/KeyTakeaways.astro';
 
 export const MDX_COMPONENTS = {
@@ -24,9 +28,13 @@ export const MDX_COMPONENTS = {
   PriceChart,
   IndicatorLab,
   CandleAnatomy,
+  CandlePattern,
   ChartFrame,
+  ParamSweep,
   Callout,
   FormulaBlock,
   Quiz,
+  PatternDrill,
+  RiskCalculator,
   KeyTakeaways,
 };

@@ -1,0 +1,354 @@
+---
+/**
+ * 部位大小計算器。
+ *
+ * 這個元件想推翻一個很普遍的順序。多數人的想法是：
+ *   「我有 50 萬，這檔看起來會漲，買個 20 萬吧」——先決定買多少，再看跌到哪要跑。
+ * 正確的順序反過來：
+ *   先決定「這一筆最多願意賠多少」，再由停損距離**反推**能買幾張。
+ *
+ * 所以這裡沒有「要買多少」這個輸入欄位 —— 它是算出來的結果，不是決定。
+ *
+ * 全部在瀏覽器端算，沒有任何資料離開這一頁。
+ */
+
+interface Props {
+  capital?: number;
+  riskPercent?: number;
+  entry?: number;
+  stop?: number;
+  target?: number;
+  class?: string;
+}
+
+const {
+  // 預設 100 萬：低於這個數字時，2% 的風險預算除以常見的每股風險常常湊不滿一張，
+  // 學員一打開就看到「不足 1 張」，反而看不出停損距離與張數的連動關係
+  capital = 1000000,
+  riskPercent = 2,
+  entry = 100,
+  stop = 93,
+  target = 121,
+  class: className = '',
+} = Astro.props;
+
+const fields = [
+  { key: 'capital', label: '總資金', unit: '元', value: capital, step: 10000, min: 10000 },
+  {
+    key: 'riskPercent',
+    label: '單筆最大風險',
+    unit: '%',
+    value: riskPercent,
+    step: 0.5,
+    min: 0.1,
+    hint: '一般建議 1~2%。這是「這一筆最壞打算賠掉總資金的百分之幾」',
+  },
+  { key: 'entry', label: '進場價', unit: '元', value: entry, step: 0.5, min: 0.01 },
+  {
+    key: 'stop',
+    label: '停損價',
+    unit: '元',
+    value: stop,
+    step: 0.5,
+    min: 0.01,
+    hint: '放在「型態被否定」的位置，不是「我最多能忍受的虧損」的位置',
+  },
+  { key: 'target', label: '目標價', unit: '元', value: target, step: 0.5, min: 0.01 },
+];
+---
+
+<risk-calculator class:list={['calc', className]}>
+  <p class="calc__title">
+    <span class="calc__badge">動手算</span>
+    先決定賠多少，再算能買多少
+  </p>
+
+  <div class="calc__grid">
+    {
+      fields.map((f) => (
+        <label class="calc__field">
+          <span class="calc__label">
+            {f.label}
+            <i>{f.unit}</i>
+          </span>
+          <input
+            type="number"
+            data-field={f.key}
+            value={f.value}
+            step={f.step}
+            min={f.min}
+            inputmode="decimal"
+          />
+          {f.hint && <small>{f.hint}</small>}
+        </label>
+      ))
+    }
+  </div>
+
+  <p class="calc__error" data-error hidden></p>
+
+  <dl class="calc__out" data-out>
+    <div>
+      <dt>風險預算</dt>
+      <dd data-out-budget>—</dd>
+      <small>總資金 × 單筆風險</small>
+    </div>
+    <div>
+      <dt>每股風險</dt>
+      <dd data-out-perShare>—</dd>
+      <small>進場價 − 停損價</small>
+    </div>
+    <div class="calc__out--hero">
+      <dt>可買張數</dt>
+      <dd data-out-lots>—</dd>
+      <small data-out-shares>—</small>
+    </div>
+    <div>
+      <dt>實際投入</dt>
+      <dd data-out-cost>—</dd>
+      <small data-out-weight>—</small>
+    </div>
+    <div>
+      <dt>停損時實賠</dt>
+      <dd data-out-loss>—</dd>
+      <small data-out-lossPct>—</small>
+    </div>
+    <div>
+      <dt>盈虧比</dt>
+      <dd data-out-rr>—</dd>
+      <small data-out-rrNote>—</small>
+    </div>
+  </dl>
+
+  <p class="calc__note">
+    張數用「無條件捨去到整張」計算，因為捨去只會讓風險更小；台股也可以買零股，那一欄同時列出。
+    這裡沒有算進手續費（0.1425%，多數券商有折讓）與賣出證交稅（0.3%）——
+    來回大約會吃掉 0.4~0.6%，短線交易一定要把它算進盈虧比裡。
+  </p>
+</risk-calculator>
+
+<script>
+  const KEYS = ['capital', 'riskPercent', 'entry', 'stop', 'target'] as const;
+  type Key = (typeof KEYS)[number];
+
+  const money = new Intl.NumberFormat('zh-TW', { maximumFractionDigits: 0 });
+  const price = new Intl.NumberFormat('zh-TW', { maximumFractionDigits: 2 });
+
+  class RiskCalculator extends HTMLElement {
+    connectedCallback() {
+      const inputs = new Map<Key, HTMLInputElement>();
+      for (const key of KEYS) {
+        const el = this.querySelector<HTMLInputElement>(`[data-field="${key}"]`);
+        if (el) inputs.set(key, el);
+      }
+
+      const set = (name: string, text: string) => {
+        const el = this.querySelector<HTMLElement>(`[data-out-${name}]`);
+        if (el) el.textContent = text;
+      };
+
+      const error = this.querySelector<HTMLElement>('[data-error]');
+      const out = this.querySelector<HTMLElement>('[data-out]');
+
+      const recompute = () => {
+        const v = Object.fromEntries(
+          KEYS.map((k) => [k, Number(inputs.get(k)?.value ?? 0)]),
+        ) as Record<Key, number>;
+
+        const perShare = v.entry - v.stop;
+
+        if (!Number.isFinite(perShare) || perShare <= 0) {
+          if (error) {
+            error.hidden = false;
+            error.textContent = '停損價必須低於進場價 —— 做多的停損放在下方。';
+          }
+          if (out) out.hidden = true;
+          return;
+        }
+        if (error) error.hidden = true;
+        if (out) out.hidden = false;
+
+        const budget = (v.capital * v.riskPercent) / 100;
+        const shares = Math.floor(budget / perShare);
+        const lots = Math.floor(shares / 1000);
+        // 整張買不起的時候，實際部位就是 0 張 —— 這本身就是有用的訊息
+        const actualShares = lots * 1000;
+        const cost = actualShares * v.entry;
+        const loss = actualShares * perShare;
+        const gain = actualShares * (v.target - v.entry);
+        const rr = perShare > 0 ? (v.target - v.entry) / perShare : 0;
+
+        set('budget', `${money.format(Math.round(budget))} 元`);
+        set('perShare', `${price.format(perShare)} 元`);
+        set('lots', lots > 0 ? `${money.format(lots)} 張` : '不足 1 張');
+        set(
+          'shares',
+          lots > 0
+            ? `零股可買 ${money.format(shares)} 股`
+            : `照風險預算只能買 ${money.format(shares)} 股，得走零股`,
+        );
+        set('cost', `${money.format(Math.round(cost))} 元`);
+        set(
+          'weight',
+          v.capital > 0 ? `佔總資金 ${((cost / v.capital) * 100).toFixed(1)}%` : '—',
+        );
+        set('loss', `${money.format(Math.round(loss))} 元`);
+        set(
+          'lossPct',
+          v.capital > 0 ? `總資金的 ${((loss / v.capital) * 100).toFixed(2)}%` : '—',
+        );
+        set('rr', `1 : ${rr.toFixed(2)}`);
+        set(
+          'rrNote',
+          gain <= 0
+            ? '目標價低於進場價，這筆沒有獲利空間'
+            : rr >= 2
+              ? `賺 ${money.format(Math.round(gain))} 元／賠 ${money.format(Math.round(loss))} 元，勝率只要超過 ${((1 / (1 + rr)) * 100).toFixed(0)}% 就是正期望值`
+              : `盈虧比低於 2，勝率要超過 ${((1 / (1 + rr)) * 100).toFixed(0)}% 才不會虧`,
+        );
+      };
+
+      this.addEventListener('input', recompute);
+      recompute();
+    }
+  }
+
+  if (!customElements.get('risk-calculator')) {
+    customElements.define('risk-calculator', RiskCalculator);
+  }
+</script>
+
+<style>
+  .calc {
+    display: block;
+    margin: 2rem 0;
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    background: var(--c-surface);
+    box-shadow: var(--shadow-sticker);
+    padding: 1.1rem 1.15rem 1.2rem;
+  }
+
+  .calc__title {
+    margin: 0 0 0.9rem;
+    font-size: 1.0625rem;
+    font-weight: 700;
+    line-height: 1.7;
+  }
+
+  .calc__badge {
+    display: inline-block;
+    margin-right: 0.5rem;
+    padding: 0.1rem 0.6rem;
+    border: 2px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-accent);
+    color: #3d3230;
+    font-size: 0.75rem;
+    vertical-align: 0.12em;
+  }
+
+  .calc__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: 0.7rem;
+  }
+
+  .calc__field {
+    display: grid;
+    gap: 0.25rem;
+    align-content: start;
+  }
+
+  .calc__label {
+    font-size: 0.8125rem;
+    font-weight: 700;
+  }
+
+  .calc__label i {
+    font-style: normal;
+    margin-left: 0.25rem;
+    color: var(--c-ink-soft);
+    font-weight: 400;
+  }
+
+  .calc__field input {
+    font: inherit;
+    font-size: 0.9375rem;
+    padding: 0.42rem 0.55rem;
+    border: 2px solid var(--c-line-soft);
+    border-radius: var(--radius-bear-sm);
+    background: var(--c-surface-2);
+    color: var(--c-ink);
+    width: 100%;
+  }
+
+  .calc__field input:focus-visible {
+    outline: 2px solid var(--c-brand);
+    outline-offset: 1px;
+  }
+
+  .calc__field small {
+    font-size: 0.75rem;
+    line-height: 1.6;
+    color: var(--c-ink-soft);
+  }
+
+  .calc__error {
+    margin: 0.9rem 0 0;
+    padding: 0.55rem 0.8rem;
+    border: 2px solid var(--c-up);
+    border-radius: var(--radius-bear-sm);
+    background: var(--c-up-wash);
+    font-size: 0.875rem;
+  }
+
+  .calc__out {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: 0.6rem;
+    margin: 1rem 0 0;
+  }
+
+  .calc__out > div {
+    border: 2px solid var(--c-line-soft);
+    border-radius: var(--radius-bear-sm);
+    background: var(--c-surface-2);
+    padding: 0.6rem 0.7rem;
+  }
+
+  .calc__out--hero {
+    border-color: var(--c-brand) !important;
+    background: var(--c-brand-wash) !important;
+  }
+
+  .calc__out dt {
+    font-size: 0.75rem;
+    color: var(--c-ink-soft);
+    font-weight: 700;
+  }
+
+  .calc__out dd {
+    margin: 0.15rem 0 0;
+    font-size: 1.125rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .calc__out small {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.7rem;
+    line-height: 1.6;
+    color: var(--c-ink-soft);
+  }
+
+  .calc__note {
+    margin: 1rem 0 0;
+    padding-top: 0.8rem;
+    border-top: 2px dashed var(--c-line-soft);
+    font-size: 0.8125rem;
+    line-height: 1.8;
+    color: var(--c-ink-soft);
+  }
+</style>
