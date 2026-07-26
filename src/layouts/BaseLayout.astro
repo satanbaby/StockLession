@@ -6,6 +6,9 @@ import SiteFooter from '@/components/nav/SiteFooter.astro';
 interface Props {
   title: string;
   description?: string;
+  /** 社群分享縮圖；相對路徑會自動補上 GitHub Pages 的 base URL */
+  image?: string;
+  imageAlt?: string;
   /** 課程頁要自己排版側欄，不要外層的置中容器 */
   bare?: boolean;
 }
@@ -13,6 +16,8 @@ interface Props {
 const {
   title,
   description = '從零開始學台股技術分析：K 線、型態、指標，每個概念都配可操作的真實線圖。',
+  image = '/images/og/home.png',
+  imageAlt = '熊熊小教室：三隻熊圍桌討論台股 K 線',
   bare = false,
 } = Astro.props;
 
@@ -21,6 +26,15 @@ const base = import.meta.env.BASE_URL.endsWith('/')
   ? import.meta.env.BASE_URL
   : `${import.meta.env.BASE_URL}/`;
 const withBase = (path: string) => `${base}${path.replace(/^\//, '')}`;
+const siteOrigin = Astro.site ?? Astro.url;
+const canonicalPath =
+  Astro.url.pathname.endsWith('/') || /\.[^/]+$/.test(Astro.url.pathname)
+    ? Astro.url.pathname
+    : `${Astro.url.pathname}/`;
+const canonicalUrl = new URL(canonicalPath, siteOrigin).toString();
+const socialImageUrl = image.startsWith('http')
+  ? image
+  : new URL(withBase(image), siteOrigin).toString();
 ---
 
 <!doctype html>
@@ -30,9 +44,28 @@ const withBase = (path: string) => `${base}${path.replace(/^\//, '')}`;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
+
+    <link rel="canonical" href={canonicalUrl} />
+
+    <meta property="og:site_name" content="熊熊小教室" />
+    <meta property="og:locale" content="zh_TW" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonicalUrl} />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
+    <meta property="og:image" content={socialImageUrl} />
+    <meta property="og:image:secure_url" content={socialImageUrl} />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={imageAlt} />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={socialImageUrl} />
+    <meta name="twitter:image:alt" content={imageAlt} />
+
     <link rel="icon" href={withBase('/favicon.svg')} type="image/svg+xml" />
 
     {/* jf open 粉圓，已子集化成全站實際用到的字（見 scripts/build-font.mjs）。
