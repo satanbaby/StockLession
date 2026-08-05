@@ -23,7 +23,10 @@ const CACHE_DIR = join(ROOT, '.cache', 'twse');
 const OUT_DIR = join(ROOT, 'src', 'data', 'ohlcv');
 
 const START = { year: 2022, month: 1 };
-const END = { year: 2026, month: 6 };
+// END 永遠是「現在」，這樣排程重跑時才會持續往前抓，不用手動再改一次日期。
+// 查到「大於今日」時 fetchMonth 會自然中止，所以抓多幾個月份也不會出錯。
+const now = new Date();
+const END = { year: now.getFullYear(), month: now.getMonth() + 1 };
 
 /** TWSE 大約每 5 秒容許 3 次請求，抓保守一點免得被擋。 */
 const REQUEST_DELAY_MS = 3500;
