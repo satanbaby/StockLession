@@ -1,0 +1,584 @@
+---
+/**
+ * MACD 解剖圖 —— 先認人，再學公式。
+ *
+ * 新手看 MACD 最大的問題不是公式，是「畫面上三個東西我不知道哪個是哪個」。
+ * 所以這張圖把名字直接貼在線上，並且用一條虛線把上半部（兩條 EMA 的距離）
+ * 與下半部（DIF 的高度）串起來 —— 那是整個指標唯一需要理解的一件事。
+ *
+ * 為什麼不用 PriceChart 加註解：lightweight-charts 沒有標籤工具，
+ * 文字與箭頭都得自己疊一層 DOM 去追 canvas 座標。這張圖的價值百分之百
+ * 在「標籤貼在正確的位置」，建置期算好座標直接吐 SVG 反而最穩，
+ * 也不必等 IntersectionObserver 觸發。
+ *
+ * 標註位置是**從資料算出來的**（DIF 最大那天、上穿零軸那天、柱子開始縮短那天），
+ * 換窗口或換標的都會自己跟著跑，不是硬寫死的座標。
+ */
+import { slice, label as datasetLabel, type SymbolId } from '@/lib/data';
+import { ema } from '@/lib/indicators/ma';
+import { macd } from '@/lib/indicators/macd';
+import type { Bar } from '@/lib/indicators/types';
+
+interface Props {
+  symbol?: SymbolId;
+  from?: string;
+  to?: string;
+  class?: string;
+}
+
+const {
+  symbol = '2330',
+  from = '2025-05-05',
+  to = '2025-06-06',
+  class: className = '',
+} = Astro.props;
+
+const FAST = 12;
+const SLOW = 26;
+const SIGNAL = 9;
+
+// EMA26 疊 EMA9(DIF) 至少要 34 根才有第一個 DEA，留 120 根保證畫面第一根就有值
+const WARMUP = 120;
+
+interface Row extends Bar {
+  e12: number;
+  e26: number;
+  dif: number;
+  dea: number;
+  hist: number;
+}
+
+const { bars } = slice(symbol, { from, to, warmup: WARMUP });
+const closes = bars.map((b) => b.close);
+const emaFast = ema(closes, FAST);
+const emaSlow = ema(closes, SLOW);
+const m = macd(bars, { fast: FAST, slow: SLOW, signal: SIGNAL });
+
+const rows: Row[] = [];
+for (let i = 0; i < bars.length; i++) {
+  const bar = bars[i]!;
+  if (bar.time < from) continue;
+  const e12 = emaFast[i];
+  const e26 = emaSlow[i];
+  const dif = m.dif[i]?.value;
+  const dea = m.dea[i]?.value;
+  const hist = m.hist[i]?.value;
+  if (e12 == null || e26 == null || dif == null || dea == null || hist == null) continue;
+  rows.push({ ...bar, e12, e26, dif, dea, hist });
+}
+
+const n = rows.length;
+const last = rows[n - 1]!;
+
+// ---------------------------------------------------------------------------
+// 座標
+// ---------------------------------------------------------------------------
+const W = 720;
+const H = 476;
+const AX = 46; // 左側刻度欄
+const PR = 614; // 繪圖區右界（右邊留給線尾的名牌）
+
+const P_TOP = 44;
+const P_BOT = 218;
+const DIVIDER = 243;
+const M_TOP = 274;
+const M_BOT = 440;
+
+const step = (PR - AX) / n;
+const x = (k: number) => AX + (k + 0.5) * step;
+const bodyW = Math.min(13, step * 0.54);
+
+const priceValues = rows.flatMap((r) => [r.high, r.low, r.e12, r.e26]);
+const pMin = Math.min(...priceValues);
+const pMax = Math.max(...priceValues);
+const pPad = (pMax - pMin) * 0.08;
+const py = (v: number) =>
+  P_BOT - ((v - (pMin - pPad)) / (pMax - pMin + pPad * 2)) * (P_BOT - P_TOP);
+
+const macdValues = [...rows.flatMap((r) => [r.dif, r.dea, r.hist]), 0];
+const mMin = Math.min(...macdValues);
+const mMax = Math.max(...macdValues);
+// 上緣多留一點：DIF 高點正上方要放名牌
+const mLo = mMin - (mMax - mMin) * 0.1;
+const mHi = mMax + (mMax - mMin) * 0.2;
+const my = (v: number) => M_BOT - ((v - mLo) / (mHi - mLo)) * (M_BOT - M_TOP);
+const zeroY = my(0);
+
+const line = (get: (r: Row) => number, scale: (v: number) => number) =>
+  rows.map((r, k) => `${k === 0 ? 'M' : 'L'}${x(k).toFixed(1)} ${scale(get(r)).toFixed(1)}`).join(' ');
+
+// ---------------------------------------------------------------------------
+// 從資料找出要標註的位置
+// ---------------------------------------------------------------------------
+const argmax = (get: (r: Row) => number, fromK = 0, toK = n - 1) => {
+  let best = fromK;
+  for (let k = fromK; k <= toK; k++) if (get(rows[k]!) > get(rows[best]!)) best = k;
+  return best;
+};
+
+/** DIF 最大那天 —— 兩條 EMA 離得最遠，最適合拉距離箭頭 */
+const gapK = argmax((r) => r.dif);
+/** 柱子最高那天（避開頭尾兩根，名牌才有地方放） */
+const histK = argmax((r) => r.hist, 1, Math.max(1, n - 3));
+/** DIF 由負轉正 */
+const zeroK = rows.findIndex((r, k) => k > 0 && rows[k - 1]!.dif <= 0 && r.dif > 0);
+/** 柱子翻負（＝死亡交叉） */
+const flipK = rows.findIndex((r, k) => k > 0 && rows[k - 1]!.hist >= 0 && r.hist < 0);
+/** 從翻負處往前推到柱子不再遞減為止，就是「一根比一根短」的起點 */
+let shrinkK = flipK > 0 ? flipK - 1 : -1;
+while (shrinkK > 0 && rows[shrinkK - 1]!.hist > rows[shrinkK]!.hist) shrinkK -= 1;
+
+const gap = rows[gapK]!;
+const shrinkable = shrinkK >= 0 && flipK > shrinkK + 1;
+/** 兩條 EMA 交叉的位置（DIF 轉正那天，兩者幾乎重合） */
+const crossPrice = zeroK > 0 ? (rows[zeroK]!.e12 + rows[zeroK]!.e26) / 2 : 0;
+
+// ---------------------------------------------------------------------------
+// 名牌（帶底色，所以可以貼在任何位置而不被線條干擾）
+// ---------------------------------------------------------------------------
+interface Pill {
+  x: number;
+  y: number;
+  text: string;
+  color?: string;
+  anchor?: 'start' | 'middle' | 'end';
+  badge?: number;
+  fs?: number;
+}
+
+const FS = 11.5;
+const charW = (s: string, fs: number) =>
+  [...s].reduce((w, ch) => w + (ch.charCodeAt(0) < 0x2e80 ? fs * 0.58 : fs * 1.02), 0);
+
+const pillBox = (p: Pill) => {
+  const fs = p.fs ?? FS;
+  const badgeW = p.badge === undefined ? 0 : 19;
+  const w = 8 + badgeW + charW(p.text, fs) + 9;
+  const h = fs + 9;
+  const raw = p.anchor === 'end' ? p.x - w : p.anchor === 'middle' ? p.x - w / 2 : p.x;
+  // 貼在最左／最右的名牌會被畫布切掉，往裡面推回來
+  const left = Math.min(Math.max(raw, 6), W - 6 - w);
+  return { fs, w, h, left, top: p.y - h / 2, badgeW };
+};
+
+const C_E12 = 'var(--chart-3)';
+const C_E26 = 'var(--chart-4)';
+const C_DIF = 'var(--chart-1)';
+const C_DEA = 'var(--chart-2)';
+
+const pills: Pill[] = [
+  // 上半部：兩條 EMA 的名牌掛在線尾，上下錯開避免疊住
+  { x: PR + 7, y: py(last.e12) - 11, text: `EMA${FAST} 快腳`, color: C_E12 },
+  { x: PR + 7, y: py(last.e26) + 13, text: `EMA${SLOW} 慢腳`, color: C_E26 },
+  // 距離箭頭：名牌塞在兩條線中間的空隙裡
+  {
+    x: x(gapK) + 9,
+    y: (py(gap.e12) + py(gap.e26)) / 2 - 3,
+    text: `相差 ${(gap.e12 - gap.e26).toFixed(1)} 元`,
+  },
+  // 下半部
+  { x: x(gapK), y: my(gap.dif) - 17, text: `DIF ${gap.dif.toFixed(1)}`, color: C_DIF, anchor: 'middle', badge: 1 },
+  { x: x(Math.max(0, zeroK - 1)), y: my(rows[Math.max(0, zeroK - 1)]!.dea) + 18, text: 'DEA', color: C_DEA, anchor: 'middle', badge: 2 },
+  { x: x(histK), y: Math.min(my(rows[histK]!.hist), my(rows[histK]!.dif)) - 21, text: '柱狀圖', anchor: 'middle', badge: 3 },
+  { x: AX + 4, y: zeroY - 13, text: '零軸', anchor: 'start', badge: 4 },
+];
+
+if (zeroK > 0) {
+  pills.push({
+    x: x(zeroK) + 11,
+    y: py(crossPrice) + 12,
+    text: '兩條 EMA 在這裡交叉，DIF 剛好 0',
+  });
+}
+
+if (shrinkable) {
+  pills.push({
+    x: (x(shrinkK) + x(flipK)) / 2,
+    y: zeroY + 42,
+    text: '柱子一根一根變短',
+    anchor: 'middle',
+  });
+}
+
+const ticks = [0, Math.round((n - 1) / 4), Math.round((n - 1) / 2), Math.round((3 * (n - 1)) / 4), n - 1];
+const mmdd = (t: string) => `${Number(t.slice(5, 7))}/${Number(t.slice(8, 10))}`;
+
+const legend = [
+  {
+    no: 1,
+    name: 'DIF（快線）',
+    color: C_DIF,
+    what: '上面那兩條 EMA 差幾塊錢',
+    means: '正的＝快腳跑在前面（短期比長期強）；負的＝落在後面。它離零軸越遠，兩條均線就拉得越開。',
+  },
+  {
+    no: 2,
+    name: 'DEA（慢線／訊號線）',
+    color: C_DEA,
+    what: 'DIF 自己最近 9 天的平均',
+    means: '拿來當 DIF 的參考基準。DIF 由下往上穿過它就是一般說的「黃金交叉」，往下穿就是死亡交叉。',
+  },
+  {
+    no: 3,
+    name: '柱狀圖（OSC／MACD 柱）',
+    color: 'var(--c-up)',
+    what: 'DIF 減 DEA，也就是兩條線的垂直距離',
+    means: '柱子在零軸上方＝DIF 高於 DEA。長度變短代表兩條線正在靠攏——交叉還沒發生，但推力已經在減弱。',
+  },
+  {
+    no: 4,
+    name: '零軸（0 這條虛線）',
+    color: 'var(--c-ink-faint)',
+    what: 'DIF 等於 0 的位置，也就是兩條 EMA 剛好交叉',
+    means: 'DIF 在零軸上方＝EMA12 在 EMA26 之上，中期趨勢偏多；下方則偏空。它跟兩條線的交叉是兩回事。',
+  },
+];
+
+const source = `${datasetLabel(symbol)}　${rows[0]!.time} ~ ${last.time}　日線 · TWSE`;
+---
+
+<figure class:list={['anat', className]}>
+  <div class="anat__head">
+    <h4 class="anat__title">MACD 解剖圖：哪條線是什麼、代表什麼</h4>
+  </div>
+
+  <div class="anat__scroll">
+    <svg viewBox={`0 0 ${W} ${H}`} class="anat__svg" role="img"
+      aria-label="MACD 解剖圖：上半部是價格與 EMA12、EMA26，下半部是 DIF、DEA 與柱狀圖，各條線都標了名字">
+      {/* ---- 兩個窗格的底 ---- */}
+      <rect x={AX} y={P_TOP} width={PR - AX} height={P_BOT - P_TOP} fill="var(--c-surface-2)" rx="4" />
+      <rect x={AX} y={M_TOP} width={PR - AX} height={M_BOT - M_TOP} fill="var(--c-surface-2)" rx="4" />
+
+      <text x={AX} y={P_TOP - 12} font-size="12" font-weight="700" fill="var(--c-ink-soft)">
+        上半部　價格 ＋ 兩條 EMA（MACD 的原料，看盤軟體通常不畫出來）
+      </text>
+      <text x={AX} y={M_TOP - 12} font-size="12" font-weight="700" fill="var(--c-ink-soft)">
+        下半部　MACD 副圖（你在看盤軟體看到的就是這一格）
+      </text>
+
+      <line
+        x1="8"
+        y1={DIVIDER}
+        x2={W - 8}
+        y2={DIVIDER}
+        stroke="var(--c-line-soft)"
+        stroke-width="1.5"
+        stroke-dasharray="2 5"
+      />
+
+      {/* ---- 價格：K 棒 ---- */}
+      {
+        rows.map((r, k) => {
+          const up = r.close >= r.open;
+          const color = up ? 'var(--c-up)' : 'var(--c-down)';
+          const top = py(Math.max(r.open, r.close));
+          const h = Math.max(py(Math.min(r.open, r.close)) - top, 1.5);
+          return (
+            <g opacity="0.5">
+              <line x1={x(k)} y1={py(r.high)} x2={x(k)} y2={py(r.low)} stroke={color} stroke-width="1.6" />
+              <rect x={x(k) - bodyW / 2} y={top} width={bodyW} height={h} fill={color} rx="1" />
+            </g>
+          );
+        })
+      }
+
+      {/* ---- 兩條 EMA ---- */}
+      <path d={line((r) => r.e26, py)} fill="none" stroke={C_E26} stroke-width="2.4" stroke-linejoin="round" />
+      <path d={line((r) => r.e12, py)} fill="none" stroke={C_E12} stroke-width="2.4" stroke-linejoin="round" />
+
+      {/* 線尾名牌的引線 */}
+      <line x1={PR - 2} y1={py(last.e12)} x2={PR + 7} y2={py(last.e12) - 11} stroke={C_E12} stroke-width="1.4" />
+      <line x1={PR - 2} y1={py(last.e26)} x2={PR + 7} y2={py(last.e26) + 13} stroke={C_E26} stroke-width="1.4" />
+
+      {/* ---- 距離箭頭：DIF 最大那天，兩條 EMA 差最多 ---- */}
+      <g stroke="var(--c-ink)" stroke-width="1.6" fill="var(--c-ink)">
+        <line x1={x(gapK)} y1={py(gap.e12) + 3} x2={x(gapK)} y2={py(gap.e26) - 3} />
+        <path d={`M${x(gapK) - 4} ${py(gap.e12) + 8} L${x(gapK)} ${py(gap.e12) + 1} L${x(gapK) + 4} ${py(gap.e12) + 8} Z`} stroke="none" />
+        <path d={`M${x(gapK) - 4} ${py(gap.e26) - 8} L${x(gapK)} ${py(gap.e26) - 1} L${x(gapK) + 4} ${py(gap.e26) - 8} Z`} stroke="none" />
+      </g>
+
+      {/* ---- 串起兩個窗格的虛線：上面的距離 = 下面 DIF 的高度 ---- */}
+      <line
+        x1={x(gapK)}
+        y1={py(gap.e26) + 4}
+        x2={x(gapK)}
+        y2={my(gap.dif) - 4}
+        stroke="var(--c-brown)"
+        stroke-width="1.6"
+        stroke-dasharray="4 4"
+      />
+      <circle cx={x(gapK)} cy={my(gap.dif)} r="4" fill="var(--c-brown)" />
+
+      {/* ---- MACD：柱狀圖 ---- */}
+      {
+        rows.map((r, k) => {
+          const yv = my(r.hist);
+          return (
+            <rect
+              x={x(k) - bodyW / 2}
+              y={Math.min(yv, zeroY)}
+              width={bodyW}
+              height={Math.max(Math.abs(zeroY - yv), 1)}
+              fill={r.hist >= 0 ? 'var(--c-up)' : 'var(--c-down)'}
+              opacity="0.62"
+              rx="1"
+            />
+          );
+        })
+      }
+
+      {/* ---- 柱狀圖名牌的引線 ---- */}
+      <line
+        x1={x(histK)}
+        y1={my(rows[histK]!.hist) - 2}
+        x2={x(histK)}
+        y2={my(rows[histK]!.hist) - 14}
+        stroke="var(--c-ink-faint)"
+        stroke-width="1.4"
+      />
+
+      {/* ---- 零軸 ---- */}
+      <line x1={AX} y1={zeroY} x2={PR} y2={zeroY} stroke="var(--c-ink-faint)" stroke-width="1.6" stroke-dasharray="6 4" />
+      <text x={AX - 6} y={zeroY + 4} text-anchor="end" font-size="11" fill="var(--c-ink-faint)">0</text>
+
+      {/* ---- DIF / DEA ---- */}
+      <path d={line((r) => r.dea, my)} fill="none" stroke={C_DEA} stroke-width="2.4" stroke-linejoin="round" />
+      <path d={line((r) => r.dif, my)} fill="none" stroke={C_DIF} stroke-width="2.4" stroke-linejoin="round" />
+
+      {/* ---- 第二條連線：兩條 EMA 交叉的那一刻，DIF 剛好踩在零軸上 ---- */}
+      {
+        zeroK > 0 && (
+          <g>
+            <circle cx={x(zeroK)} cy={py(crossPrice)} r="4.5" fill="none" stroke="var(--c-brand)" stroke-width="2.2" />
+            <line
+              x1={x(zeroK)}
+              y1={py(crossPrice) + 6}
+              x2={x(zeroK)}
+              y2={zeroY - 6}
+              stroke="var(--c-brand)"
+              stroke-width="1.6"
+              stroke-dasharray="4 4"
+            />
+            <circle cx={x(zeroK)} cy={zeroY} r="4.5" fill="none" stroke="var(--c-brand)" stroke-width="2.2" />
+          </g>
+        )
+      }
+
+      {/* ---- 柱子一根一根變短 ---- */}
+      {
+        shrinkable && (
+          <g stroke="var(--c-ink-soft)" stroke-width="1.5" fill="none">
+            <path d={`M${x(shrinkK)} ${zeroY + 20} L${x(shrinkK)} ${zeroY + 27} L${x(flipK)} ${zeroY + 27} L${x(flipK)} ${zeroY + 20}`} />
+            <path d={`M${x(flipK) - 6} ${zeroY + 22} L${x(flipK)} ${zeroY + 27} L${x(flipK) - 6} ${zeroY + 32}`} />
+          </g>
+        )
+      }
+
+      {/* ---- 日期刻度 ---- */}
+      {
+        ticks.map((k) => (
+          <text x={x(k)} y={M_BOT + 18} text-anchor="middle" font-size="11" fill="var(--c-ink-faint)">
+            {mmdd(rows[k]!.time)}
+          </text>
+        ))
+      }
+
+      {/* ---- 名牌 ---- */}
+      {
+        pills.map((p) => {
+          const b = pillBox(p);
+          const color = p.color ?? 'var(--c-ink)';
+          return (
+            <g>
+              <rect
+                x={b.left}
+                y={b.top}
+                width={b.w}
+                height={b.h}
+                rx={b.h / 2}
+                fill="var(--c-surface)"
+                stroke={color}
+                stroke-width="1.6"
+              />
+              {p.badge !== undefined && (
+                <>
+                  <circle cx={b.left + 8 + 7.5} cy={p.y} r="7.5" fill={color} />
+                  <text
+                    x={b.left + 8 + 7.5}
+                    y={p.y + 3.6}
+                    text-anchor="middle"
+                    font-size="10.5"
+                    font-weight="700"
+                    fill="var(--c-surface)"
+                  >
+                    {p.badge}
+                  </text>
+                </>
+              )}
+              <text
+                x={b.left + 8 + b.badgeW}
+                y={p.y + b.fs * 0.36}
+                font-size={b.fs}
+                font-weight="700"
+                fill="var(--c-ink)"
+              >
+                {p.text}
+              </text>
+            </g>
+          );
+        })
+      }
+    </svg>
+  </div>
+
+  <ol class="anat__legend">
+    {
+      legend.map((item) => (
+        <li class="anat__item">
+          <span class="anat__no" style={`background:${item.color}`}>{item.no}</span>
+          <div>
+            <p class="anat__name">
+              <i class="anat__swatch" style={`background:${item.color}`} />
+              {item.name}
+            </p>
+            <p class="anat__what">
+              它是什麼：<strong>{item.what}</strong>
+            </p>
+            <p class="anat__means">{item.means}</p>
+          </div>
+        </li>
+      ))
+    }
+  </ol>
+
+  <figcaption class="anat__cap">
+    <span>
+      整張圖只有一句話要記：<strong>下面那條藍線（DIF）的高度，就是上面兩條 EMA 拉開的距離。</strong>
+      棕色虛線串起來的就是這件事——{mmdd(rows[gapK]!.time)} 兩條 EMA 相差 {(gap.e12 - gap.e26).toFixed(1)} 元，
+      DIF 就站在 {gap.dif.toFixed(1)} 的高度。
+    </span>
+    <span class="anat__source">{source}</span>
+  </figcaption>
+</figure>
+
+<style>
+  .anat {
+    margin: 1.75rem 0;
+    background: var(--c-surface);
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    box-shadow: var(--shadow-sticker);
+    overflow: hidden;
+  }
+
+  .anat__head {
+    padding: 0.6rem 1rem;
+    border-bottom: 2px solid var(--c-line);
+    background: var(--c-surface-2);
+  }
+
+  .anat__title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  /* 窄畫面讓圖自己橫捲：把 720 的畫布壓到 360 寬，字會小到看不見 */
+  .anat__scroll {
+    overflow-x: auto;
+    padding: 0.5rem;
+  }
+
+  .anat__svg {
+    width: 100%;
+    min-width: 34rem;
+    height: auto;
+    font-family: inherit;
+  }
+
+  .anat__legend {
+    list-style: none;
+    margin: 0;
+    padding: 0.25rem 1rem 0.9rem;
+    display: grid;
+    gap: 0.7rem;
+  }
+
+  .anat__item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin: 0;
+  }
+
+  .anat__no {
+    flex: none;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-top: 0.15rem;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    border: 2px solid var(--c-line);
+    color: #fff;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .anat__name {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    line-height: 1.6;
+  }
+
+  .anat__swatch {
+    width: 0.9rem;
+    height: 0.3rem;
+    border-radius: 2px;
+    flex: none;
+  }
+
+  .anat__what,
+  .anat__means {
+    margin: 0.1rem 0 0;
+    font-size: 0.875rem;
+    line-height: 1.75;
+    color: var(--c-ink-soft);
+  }
+
+  .anat__what strong {
+    color: var(--c-ink);
+  }
+
+  .anat__cap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
+    align-items: baseline;
+    padding: 0.7rem 1rem 0.85rem;
+    border-top: 2px dashed var(--c-line-soft);
+    font-size: 0.875rem;
+    line-height: 1.75;
+    color: var(--c-ink-soft);
+  }
+
+  .anat__cap > span:first-child {
+    flex: 1 1 18rem;
+  }
+
+  .anat__cap strong {
+    color: var(--c-ink);
+  }
+
+  .anat__source {
+    font-size: 0.75rem;
+    color: var(--c-ink-faint);
+    margin-left: auto;
+    white-space: nowrap;
+  }
+</style>
