@@ -1,0 +1,306 @@
+---
+/** A daily-life metaphor for RSV → K → D. Values are illustrative, not market data. */
+import BearAvatar from '@/components/bears/BearAvatar.astro';
+---
+
+<figure class="elevator">
+  <div class="elevator__head">
+    <span class="elevator__tag">生活比喻</span>
+    <h4>把最近 9 天的價格想成一棟 100 層大樓</h4>
+  </div>
+
+  <div class="elevator__body">
+    <div class="elevator__scene" aria-hidden="true">
+      <div class="elevator__building">
+        <span class="elevator__floor elevator__floor--100">100 頂樓</span>
+        <span class="elevator__floor elevator__floor--80">80</span>
+        <span class="elevator__floor elevator__floor--50">50</span>
+        <span class="elevator__floor elevator__floor--20">20</span>
+        <span class="elevator__floor elevator__floor--0">0 大廳</span>
+        <div class="elevator__high-zone">高檔區</div>
+        <div class="elevator__low-zone">低檔區</div>
+        <div class="elevator__car">
+          <span>今日收盤</span>
+          <strong>第 86 層</strong>
+        </div>
+      </div>
+    </div>
+
+    <ol class="elevator__steps">
+      <li>
+        <span class="elevator__step-no">1</span>
+        <div>
+          <strong>RSV 是「電梯今天停在哪一層」</strong>
+          <p>近 9 日最低價當 0 樓、最高價當 100 樓。今天收在靠近頂樓的位置，RSV 就高。</p>
+        </div>
+      </li>
+      <li>
+        <BearAvatar bear="duo" mood="excited" size={58} decorative />
+        <div>
+          <strong>K 像腳步快的阿多</strong>
+          <p>他會往今天的樓層移動，但會參考昨天的位置，所以比 RSV 穩一點、轉彎也比較快。</p>
+        </div>
+      </li>
+      <li>
+        <BearAvatar bear="jun" mood="thinking" size={58} decorative />
+        <div>
+          <strong>D 像慢一步的阿均</strong>
+          <p>他跟著 K 移動，而且再多想一下，所以線條更平滑，也總是比 K 慢半拍。</p>
+        </div>
+      </li>
+    </ol>
+  </div>
+
+  <figcaption>
+    電梯停在 80 樓以上，只表示它最近常待在高樓層，<strong>不代表下一站一定往下。</strong>
+    強勢行情甚至會一路停在高樓層——這就是後面要學的「高檔鈍化」。
+  </figcaption>
+</figure>
+
+<style>
+  .elevator {
+    margin: 1.75rem 0;
+    overflow: hidden;
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    background: var(--c-surface);
+    box-shadow: var(--shadow-sticker);
+  }
+
+  .elevator__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 2px solid var(--c-line);
+    background: var(--c-accent-wash);
+  }
+
+  .elevator__head h4 {
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  .elevator__tag {
+    padding: 0.2rem 0.55rem;
+    border: 2px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-accent);
+    color: var(--c-ink);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .elevator__body {
+    display: grid;
+    grid-template-columns: minmax(13rem, 0.82fr) minmax(0, 1.7fr);
+    gap: 1.2rem;
+    align-items: stretch;
+    padding: 1rem;
+  }
+
+  .elevator__scene {
+    min-height: 21rem;
+    padding: 0.85rem 3.2rem 0.85rem 2.8rem;
+    border: 2px dashed var(--c-line-soft);
+    border-radius: 1rem;
+    background: var(--c-surface-2);
+  }
+
+  .elevator__building {
+    position: relative;
+    width: 100%;
+    max-width: 10rem;
+    height: 100%;
+    min-height: 19rem;
+    margin: 0 auto;
+    border: 3px solid var(--c-line);
+    border-radius: 0.7rem 0.7rem 0.25rem 0.25rem;
+    background:
+      repeating-linear-gradient(to bottom, transparent 0, transparent calc(10% - 1px), var(--c-line-soft) calc(10% - 1px), var(--c-line-soft) 10%),
+      var(--c-surface);
+    box-shadow: var(--shadow-sticker-sm);
+  }
+
+  .elevator__building::before {
+    content: '';
+    position: absolute;
+    inset: -0.65rem 18% auto;
+    height: 0.65rem;
+    border: 3px solid var(--c-line);
+    border-bottom: 0;
+    border-radius: 0.5rem 0.5rem 0 0;
+    background: var(--c-accent);
+  }
+
+  .elevator__high-zone,
+  .elevator__low-zone {
+    position: absolute;
+    z-index: 0;
+    right: 0;
+    left: 0;
+    display: grid;
+    place-items: center;
+    color: var(--c-ink-soft);
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+
+  .elevator__high-zone {
+    top: 0;
+    height: 20%;
+    background: var(--c-accent-wash);
+  }
+
+  .elevator__low-zone {
+    bottom: 0;
+    height: 20%;
+    background: var(--c-brand-wash);
+  }
+
+  .elevator__floor {
+    position: absolute;
+    right: calc(100% + 0.45rem);
+    z-index: 3;
+    color: var(--c-ink-soft);
+    font-size: 0.7rem;
+    font-weight: 700;
+    white-space: nowrap;
+    transform: translateY(50%);
+  }
+
+  .elevator__floor--100 { top: -0.5rem; transform: none; }
+  .elevator__floor--80 { bottom: 80%; }
+  .elevator__floor--50 { bottom: 50%; }
+  .elevator__floor--20 { bottom: 20%; }
+  .elevator__floor--0 { bottom: -0.45rem; transform: translateY(100%); }
+
+  .elevator__car {
+    position: absolute;
+    z-index: 2;
+    right: 12%;
+    bottom: 78%;
+    left: 12%;
+    display: grid;
+    min-height: 3.5rem;
+    place-items: center;
+    padding: 0.25rem;
+    border: 3px solid var(--c-line);
+    border-radius: 0.55rem;
+    background: var(--c-brand);
+    color: var(--c-ink);
+    box-shadow: 3px 3px 0 var(--c-shadow);
+    text-align: center;
+  }
+
+  .elevator__car::before,
+  .elevator__car::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--c-line);
+  }
+
+  .elevator__car::before { left: 33%; }
+  .elevator__car::after { right: 33%; }
+
+  .elevator__car span,
+  .elevator__car strong {
+    position: relative;
+    z-index: 1;
+    padding-inline: 0.18rem;
+    border-radius: 0.2rem;
+    background: var(--c-brand);
+  }
+
+  .elevator__car span {
+    font-size: 0.68rem;
+    font-weight: 700;
+  }
+
+  .elevator__car strong {
+    font-size: 0.86rem;
+  }
+
+  .elevator__steps {
+    display: grid;
+    align-content: center;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .elevator__steps li {
+    display: grid;
+    grid-template-columns: 3.6rem minmax(0, 1fr);
+    gap: 0.65rem;
+    align-items: center;
+    margin: 0;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--c-line-soft);
+    border-radius: 1rem;
+    background: var(--c-surface-2);
+  }
+
+  .elevator__steps :global(.bear-avatar) {
+    align-self: end;
+    justify-self: center;
+  }
+
+  .elevator__step-no {
+    display: grid;
+    width: 2.15rem;
+    height: 2.15rem;
+    place-self: center;
+    place-items: center;
+    border: 2px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-accent);
+    color: var(--c-ink);
+    font-weight: 700;
+  }
+
+  .elevator__steps strong {
+    color: var(--c-ink);
+    font-size: 0.94rem;
+  }
+
+  .elevator__steps p {
+    margin: 0.15rem 0 0;
+    color: var(--c-ink-soft);
+    font-size: 0.84rem;
+    line-height: 1.65;
+  }
+
+  .elevator figcaption {
+    padding: 0.75rem 1rem 0.85rem;
+    border-top: 2px dashed var(--c-line-soft);
+    background: var(--c-brand-wash);
+    color: var(--c-ink-soft);
+    font-size: 0.875rem;
+    line-height: 1.75;
+  }
+
+  .elevator figcaption strong {
+    color: var(--c-ink);
+  }
+
+  @media (max-width: 42rem) {
+    .elevator__body {
+      grid-template-columns: 1fr;
+    }
+
+    .elevator__scene {
+      min-height: 18rem;
+    }
+
+    .elevator__building {
+      min-height: 16rem;
+    }
+  }
+</style>

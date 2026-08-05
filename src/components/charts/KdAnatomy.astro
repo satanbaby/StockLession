@@ -1,0 +1,451 @@
+---
+/**
+ * KD 解剖圖 —— 先看懂畫面，再進公式。
+ *
+ * 用真實台積電日線把三件事接在一起：近 9 日高低區間、RSV 的位置，
+ * 以及平滑後的 K／D。標註位置全部由資料計算，不依賴瀏覽器端圖表 API。
+ */
+import { slice, label as datasetLabel, type SymbolId } from '@/lib/data';
+import { kd } from '@/lib/indicators/kd';
+import type { Bar } from '@/lib/indicators/types';
+
+interface Props {
+  symbol?: SymbolId;
+  from?: string;
+  to?: string;
+  class?: string;
+}
+
+const {
+  symbol = '2330',
+  from = '2024-07-01',
+  to = '2024-08-20',
+  class: className = '',
+} = Astro.props;
+
+const PERIOD = 9;
+const { bars } = slice(symbol, { from, to, warmup: 80 });
+const result = kd(bars, { rsvPeriod: PERIOD, kSmooth: 3, dSmooth: 3 });
+
+interface Row extends Bar {
+  k: number;
+  d: number;
+  rsv: number;
+}
+
+const rows: Row[] = [];
+for (let i = 0; i < bars.length; i += 1) {
+  const bar = bars[i]!;
+  if (bar.time < from) continue;
+  const k = result.k[i]?.value;
+  const d = result.d[i]?.value;
+  const rsv = result.rsv[i]?.value;
+  if (k == null || d == null || rsv == null) continue;
+  rows.push({ ...bar, k, d, rsv });
+}
+
+if (rows.length < PERIOD) {
+  throw new Error(`KdAnatomy 需要至少 ${PERIOD} 根可顯示資料`);
+}
+
+const n = rows.length;
+const W = 720;
+const H = 486;
+const AX = 52;
+const PR = 650;
+const P_TOP = 43;
+const P_BOT = 203;
+const DIVIDER = 228;
+const K_TOP = 266;
+const K_BOT = 443;
+
+const step = (PR - AX) / n;
+const x = (index: number) => AX + (index + 0.5) * step;
+const bodyW = Math.min(11, step * 0.56);
+
+const priceValues = rows.flatMap((row) => [row.high, row.low]);
+const priceMin = Math.min(...priceValues);
+const priceMax = Math.max(...priceValues);
+const pricePad = (priceMax - priceMin) * 0.08;
+const py = (value: number) =>
+  P_BOT - ((value - (priceMin - pricePad)) / (priceMax - priceMin + pricePad * 2)) * (P_BOT - P_TOP);
+const ky = (value: number) => K_BOT - (value / 100) * (K_BOT - K_TOP);
+
+const path = (get: (row: Row) => number, scale: (value: number) => number) =>
+  rows.map((row, index) => `${index === 0 ? 'M' : 'L'}${x(index).toFixed(1)} ${scale(get(row)).toFixed(1)}`).join(' ');
+
+const highK = rows.reduce((best, row, index) => row.k > rows[best]!.k ? index : best, PERIOD - 1);
+const crossK = rows.findIndex((row, index) =>
+  index > 0 && rows[index - 1]!.k <= rows[index - 1]!.d && row.k > row.d && row.k < 35,
+);
+
+// 用高檔那天示範「今日收盤在近 9 日區間的位置」。
+const focusK = highK;
+const lookbackStart = Math.max(0, focusK - PERIOD + 1);
+const lookback = rows.slice(lookbackStart, focusK + 1);
+const rangeHigh = Math.max(...lookback.map((row) => row.high));
+const rangeLow = Math.min(...lookback.map((row) => row.low));
+const focus = rows[focusK]!;
+
+const C_K = 'var(--chart-1)';
+const C_D = 'var(--chart-2)';
+const C_RSV = 'var(--chart-4)';
+
+const ticks = [0, Math.round((n - 1) / 4), Math.round((n - 1) / 2), Math.round((3 * (n - 1)) / 4), n - 1];
+const mmdd = (time: string) => `${Number(time.slice(5, 7))}/${Number(time.slice(8, 10))}`;
+const source = `${datasetLabel(symbol)}・${rows[0]!.time}～${rows[n - 1]!.time}・資料：TWSE`;
+
+const legend = [
+  {
+    no: 1,
+    name: 'K 快線',
+    color: C_K,
+    what: 'RSV 平滑一次',
+    means: '比較貼近近期價格，轉彎通常比 D 早。',
+  },
+  {
+    no: 2,
+    name: 'D 慢線',
+    color: C_D,
+    what: 'K 再平滑一次',
+    means: '反應比較慢，用來確認 K 的方向有沒有延續。',
+  },
+  {
+    no: 3,
+    name: '80 以上：高檔區',
+    color: 'var(--c-accent)',
+    what: '近期收盤常靠近區間頂端',
+    means: '代表買方強，不等於「下一秒一定下跌」。',
+  },
+  {
+    no: 4,
+    name: '20 以下：低檔區',
+    color: 'var(--c-brand)',
+    what: '近期收盤常靠近區間底部',
+    means: '代表賣方強，不等於「下一秒一定反彈」。',
+  },
+];
+---
+
+<figure class:list={['kd-anat', className]}>
+  <div class="kd-anat__head">
+    <h4 class="kd-anat__title">KD 解剖圖：先認出兩條線與兩個區域</h4>
+    <span class="kd-anat__hint">讀圖順序：位置 → 方向 → 交叉</span>
+  </div>
+
+  <div class="kd-anat__scroll">
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      class="kd-anat__svg"
+      role="img"
+      aria-label="KD 解剖圖。上半部是台積電日線與近九日區間，下半部是 K 快線、D 慢線，以及 80 和 20 參考區。"
+    >
+      <rect x={AX} y={P_TOP} width={PR - AX} height={P_BOT - P_TOP} rx="5" fill="var(--c-surface-2)" />
+      <rect x={AX} y={K_TOP} width={PR - AX} height={K_BOT - K_TOP} rx="5" fill="var(--c-surface-2)" />
+
+      <text x={AX} y={P_TOP - 12} font-size="12" font-weight="700" fill="var(--c-ink-soft)">
+        上半部｜股價：先找近 9 日高低，再看今天收在哪裡
+      </text>
+      <text x={AX} y={K_TOP - 12} font-size="12" font-weight="700" fill="var(--c-ink-soft)">
+        下半部｜KD：K 先反應，D 慢一步跟上
+      </text>
+
+      <line x1="8" y1={DIVIDER} x2={W - 8} y2={DIVIDER} stroke="var(--c-line-soft)" stroke-width="1.5" stroke-dasharray="2 5" />
+
+      <!-- 近 9 日觀察窗 -->
+      <rect
+        x={x(lookbackStart) - step / 2}
+        y={P_TOP}
+        width={x(focusK) - x(lookbackStart) + step}
+        height={P_BOT - P_TOP}
+        fill="var(--c-accent-wash)"
+        opacity="0.72"
+      />
+      <text
+        x={(x(lookbackStart) + x(focusK)) / 2}
+        y={P_TOP + 15}
+        text-anchor="middle"
+        font-size="11"
+        font-weight="700"
+        fill="var(--c-ink-soft)"
+      >
+        近 9 個交易日
+      </text>
+
+      <!-- K 棒 -->
+      {
+        rows.map((row, index) => {
+          const up = row.close >= row.open;
+          const color = up ? 'var(--c-up)' : 'var(--c-down)';
+          const top = py(Math.max(row.open, row.close));
+          const height = Math.max(py(Math.min(row.open, row.close)) - top, 1.5);
+          return (
+            <g opacity="0.64">
+              <line x1={x(index)} y1={py(row.high)} x2={x(index)} y2={py(row.low)} stroke={color} stroke-width="1.5" />
+              <rect x={x(index) - bodyW / 2} y={top} width={bodyW} height={height} fill={color} rx="1" />
+            </g>
+          );
+        })
+      }
+
+      <!-- 焦點日的近 9 日高低與收盤位置 -->
+      <line x1={x(focusK) + 13} y1={py(rangeHigh)} x2={x(focusK) + 13} y2={py(rangeLow)} stroke="var(--c-ink)" stroke-width="1.6" />
+      <line x1={x(focusK) + 8} y1={py(rangeHigh)} x2={x(focusK) + 18} y2={py(rangeHigh)} stroke="var(--c-ink)" stroke-width="1.6" />
+      <line x1={x(focusK) + 8} y1={py(rangeLow)} x2={x(focusK) + 18} y2={py(rangeLow)} stroke="var(--c-ink)" stroke-width="1.6" />
+      <circle cx={x(focusK)} cy={py(focus.close)} r="5" fill="var(--c-surface)" stroke={C_RSV} stroke-width="2.4" />
+      <rect x={x(focusK) - 91} y={py(focus.close) - 31} width="96" height="22" rx="11" fill="var(--c-surface)" stroke={C_RSV} stroke-width="1.5" />
+      <text x={x(focusK) - 43} y={py(focus.close) - 16} text-anchor="middle" font-size="11" font-weight="700" fill="var(--c-ink)">
+        收盤在第 {Math.round(focus.rsv)} 層
+      </text>
+
+      <line
+        x1={x(focusK)}
+        y1={py(focus.close) + 6}
+        x2={x(focusK)}
+        y2={ky(focus.rsv) - 5}
+        stroke={C_RSV}
+        stroke-width="1.5"
+        stroke-dasharray="4 4"
+      />
+
+      <!-- KD 高低檔區與參考線 -->
+      <rect x={AX} y={ky(100)} width={PR - AX} height={ky(80) - ky(100)} fill="var(--c-accent-wash)" opacity="0.78" />
+      <rect x={AX} y={ky(20)} width={PR - AX} height={ky(0) - ky(20)} fill="var(--c-brand-wash)" opacity="0.78" />
+      {[80, 50, 20].map((value) => (
+        <g>
+          <line
+            x1={AX}
+            y1={ky(value)}
+            x2={PR}
+            y2={ky(value)}
+            stroke={value === 50 ? 'var(--c-line-soft)' : 'var(--c-ink-faint)'}
+            stroke-width={value === 50 ? 1 : 1.4}
+            stroke-dasharray={value === 50 ? '3 5' : '6 4'}
+          />
+          <text x={AX - 7} y={ky(value) + 4} text-anchor="end" font-size="11" font-weight={value === 50 ? '400' : '700'} fill="var(--c-ink-faint)">{value}</text>
+        </g>
+      ))}
+
+      <path d={path((row) => row.d, ky)} fill="none" stroke={C_D} stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+      <path d={path((row) => row.k, ky)} fill="none" stroke={C_K} stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+
+      <!-- 焦點日：RSV 是原始位置，K/D 是平滑後的位置 -->
+      <circle cx={x(focusK)} cy={ky(focus.rsv)} r="4" fill={C_RSV} />
+      <circle cx={x(focusK)} cy={ky(focus.k)} r="4" fill={C_K} />
+      <circle cx={x(focusK)} cy={ky(focus.d)} r="4" fill={C_D} />
+
+      <!-- 線名直接掛在線尾 -->
+      <g>
+        <rect x={PR + 7} y={ky(rows[n - 1]!.k) - 20} width="58" height="22" rx="11" fill="var(--c-surface)" stroke={C_K} stroke-width="1.6" />
+        <circle cx={PR + 20} cy={ky(rows[n - 1]!.k) - 9} r="7.5" fill={C_K} />
+        <text x={PR + 20} y={ky(rows[n - 1]!.k) - 5.5} text-anchor="middle" font-size="10" font-weight="700" fill="var(--c-surface)">1</text>
+        <text x={PR + 32} y={ky(rows[n - 1]!.k) - 5} font-size="11" font-weight="700" fill="var(--c-ink)">K 快</text>
+
+        <rect x={PR + 7} y={ky(rows[n - 1]!.d) + 3} width="58" height="22" rx="11" fill="var(--c-surface)" stroke={C_D} stroke-width="1.6" />
+        <circle cx={PR + 20} cy={ky(rows[n - 1]!.d) + 14} r="7.5" fill={C_D} />
+        <text x={PR + 20} y={ky(rows[n - 1]!.d) + 17.5} text-anchor="middle" font-size="10" font-weight="700" fill="var(--c-surface)">2</text>
+        <text x={PR + 32} y={ky(rows[n - 1]!.d) + 18} font-size="11" font-weight="700" fill="var(--c-ink)">D 慢</text>
+      </g>
+
+      <!-- 高低檔區標籤 -->
+      <g>
+        <circle cx={AX + 15} cy={ky(90)} r="10" fill="var(--c-accent)" stroke="var(--c-line)" stroke-width="1.5" />
+        <text x={AX + 15} y={ky(90) + 4} text-anchor="middle" font-size="11" font-weight="700" fill="var(--c-ink)">3</text>
+        <text x={AX + 31} y={ky(90) + 4} font-size="11" font-weight="700" fill="var(--c-ink)">高檔區</text>
+
+        <circle cx={AX + 15} cy={ky(10)} r="10" fill="var(--c-brand)" stroke="var(--c-line)" stroke-width="1.5" />
+        <text x={AX + 15} y={ky(10) + 4} text-anchor="middle" font-size="11" font-weight="700" fill="var(--c-ink)">4</text>
+        <text x={AX + 31} y={ky(10) + 4} font-size="11" font-weight="700" fill="var(--c-ink)">低檔區</text>
+      </g>
+
+      {
+        crossK > 0 && (
+          <g>
+            <circle cx={x(crossK)} cy={ky(rows[crossK]!.k)} r="6" fill="var(--c-surface)" stroke="var(--c-accent)" stroke-width="3" />
+            <path d={`M${x(crossK) + 5} ${ky(rows[crossK]!.k) - 6} L${x(crossK) + 18} ${ky(rows[crossK]!.k) - 22}`} stroke="var(--c-ink-soft)" stroke-width="1.4" />
+            <rect x={x(crossK) + 15} y={ky(rows[crossK]!.k) - 36} width="114" height="23" rx="11.5" fill="var(--c-surface)" stroke="var(--c-accent)" stroke-width="1.5" />
+            <text x={x(crossK) + 72} y={ky(rows[crossK]!.k) - 20.5} text-anchor="middle" font-size="11" font-weight="700" fill="var(--c-ink)">K 上穿 D＝黃金交叉</text>
+          </g>
+        )
+      }
+
+      {
+        ticks.map((index) => (
+          <text x={x(index)} y={K_BOT + 19} text-anchor="middle" font-size="11" fill="var(--c-ink-faint)">
+            {mmdd(rows[index]!.time)}
+          </text>
+        ))
+      }
+    </svg>
+  </div>
+
+  <ol class="kd-anat__legend">
+    {
+      legend.map((item) => (
+        <li class="kd-anat__item">
+          <span class="kd-anat__no" style={`background:${item.color}`}>{item.no}</span>
+          <div>
+            <p class="kd-anat__name">
+              <i class="kd-anat__swatch" style={`background:${item.color}`} />
+              {item.name}
+            </p>
+            <p class="kd-anat__what">畫面在說：<strong>{item.what}</strong></p>
+            <p class="kd-anat__means">{item.means}</p>
+          </div>
+        </li>
+      ))
+    }
+  </ol>
+
+  <figcaption class="kd-anat__cap">
+    <span>
+      圖中 {mmdd(focus.time)} 的收盤位在近 9 日區間第 <strong>{Math.round(focus.rsv)} 層</strong>；平滑後 K 為 {focus.k.toFixed(1)}、D 為 {focus.d.toFixed(1)}。
+      <strong>KD 描述的是位置與力道，不是明天漲跌的預言。</strong>
+    </span>
+    <span class="kd-anat__source">{source}</span>
+  </figcaption>
+</figure>
+
+<style>
+  .kd-anat {
+    margin: 1.75rem 0;
+    overflow: hidden;
+    border: 2px solid var(--c-line);
+    border-radius: var(--radius-bear);
+    background: var(--c-surface);
+    box-shadow: var(--shadow-sticker);
+  }
+
+  .kd-anat__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.2rem 1rem;
+    padding: 0.65rem 1rem;
+    border-bottom: 2px solid var(--c-line);
+    background: var(--c-surface-2);
+  }
+
+  .kd-anat__title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  .kd-anat__hint {
+    color: var(--c-ink-soft);
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .kd-anat__scroll {
+    overflow-x: auto;
+    padding: 0.5rem;
+  }
+
+  .kd-anat__svg {
+    width: 100%;
+    min-width: 34rem;
+    height: auto;
+    font-family: inherit;
+  }
+
+  .kd-anat__legend {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem 1.2rem;
+    margin: 0;
+    padding: 0.35rem 1rem 1rem;
+    list-style: none;
+  }
+
+  .kd-anat__item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin: 0;
+  }
+
+  .kd-anat__no {
+    display: grid;
+    flex: none;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-top: 0.15rem;
+    place-items: center;
+    border: 2px solid var(--c-line);
+    border-radius: 999px;
+    color: var(--c-surface);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .kd-anat__item:nth-child(3) .kd-anat__no,
+  .kd-anat__item:nth-child(4) .kd-anat__no {
+    color: var(--c-ink);
+  }
+
+  .kd-anat__name {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    line-height: 1.6;
+  }
+
+  .kd-anat__swatch {
+    flex: none;
+    width: 0.9rem;
+    height: 0.3rem;
+    border-radius: 2px;
+  }
+
+  .kd-anat__what,
+  .kd-anat__means {
+    margin: 0.1rem 0 0;
+    color: var(--c-ink-soft);
+    font-size: 0.875rem;
+    line-height: 1.7;
+  }
+
+  .kd-anat__what strong {
+    color: var(--c-ink);
+  }
+
+  .kd-anat__cap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
+    align-items: baseline;
+    padding: 0.7rem 1rem 0.85rem;
+    border-top: 2px dashed var(--c-line-soft);
+    color: var(--c-ink-soft);
+    font-size: 0.875rem;
+    line-height: 1.75;
+  }
+
+  .kd-anat__cap > span:first-child {
+    flex: 1 1 20rem;
+  }
+
+  .kd-anat__cap strong {
+    color: var(--c-ink);
+  }
+
+  .kd-anat__source {
+    margin-left: auto;
+    color: var(--c-ink-faint);
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 40rem) {
+    .kd-anat__legend {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

@@ -13,6 +13,8 @@ import IndicatorLab from './charts/IndicatorLab.astro';
 import CandleAnatomy from './charts/CandleAnatomy.astro';
 import CandlePattern from './charts/CandlePattern.astro';
 import MacdAnatomy from './charts/MacdAnatomy.astro';
+import KdAnatomy from './charts/KdAnatomy.astro';
+import KdElevator from './charts/KdElevator.astro';
 import ChartFrame from './charts/ChartFrame.astro';
 import ParamSweep from './charts/ParamSweep.astro';
 import Callout from './learn/Callout.astro';
@@ -31,6 +33,8 @@ export const MDX_COMPONENTS = {
   CandleAnatomy,
   CandlePattern,
   MacdAnatomy,
+  KdAnatomy,
+  KdElevator,
   ChartFrame,
   ParamSweep,
   Callout,
